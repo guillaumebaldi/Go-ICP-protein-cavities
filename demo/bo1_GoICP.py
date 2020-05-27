@@ -37,13 +37,13 @@ if not os.path.exists(path):
     else:
         print ("Successfully created the directory %s " % path)
 
-for i in range(20, len(similar)-1, 2):
-#for i in range(0, len(similar)-1, 2):
+#for i in range(0, 2, 2):
+for i in range(0, len(similar)-1, 2):
     #print(similar[i] + "-" + similar[i+1]) 
     posSource = similar[i].find('.')
     posTarget = similar[i+1].find('.')
-    similarSource = "cavitiesN/" + similar[i][0:posSource] + "_sim" + str(int(i/2+1)) + "N" + similar[i][posSource:]
-    similarTarget = "cavitiesN/" + similar[i+1][0:posTarget] + "_sim" + str(int(i/2+1)) + "N" + similar[i+1][posTarget:]
+    similarSource = "cavitiesN/" + similar[i][0:posSource] + "_sim" + str(int(i/2+1)) + "N.xyz"
+    similarTarget = "cavitiesN/" + similar[i+1][0:posTarget] + "_sim" + str(int(i/2+1)) + "N.xyz"
     sourceSimilarFile = open(similarSource, "r")
     pointsNumber = sourceSimilarFile.readline().replace("\n", "")
     outputFile = "output/similar" + str(int(i/2+1)) + ".txt"
