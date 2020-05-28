@@ -1503,9 +1503,10 @@ void GoICP::neighborsWeights() {
 		}
 		distance = distance + 0.001;
 	}
-	//cout << minN << " - " << maxN << endl;
+	if(minN == 0) minN = 1;
 	for (size_t i = 0; i < Nd; i++)
 	{
+		if(pData[i].neighbors == 0) pData[i].neighbors = 1;
 		float f = (float)minN / (float)pData[i].neighbors;
 		weights[i] += f; 
 		//cout << pData[i].neighbors << " : " << f << " / ";
