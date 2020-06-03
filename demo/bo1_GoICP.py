@@ -55,8 +55,8 @@ for i in range(0, 0, 2):
     #print(similar[i] + "-" + similar[i+1]) 
     posSource = dissimilar[i].find('.')
     posTarget = dissimilar[i+1].find('.')
-    dissimilarSource = "cavitiesN/" + dissimilar[i][0:posSource] + "_dis" + str(int(i/2+1)) + "N" + dissimilar[i][posSource:]
-    dissimilarTarget = "cavitiesN/" + dissimilar[i+1][0:posTarget] + "_dis" + str(int(i/2+1)) + "N" + dissimilar[i+1][posTarget:]
+    dissimilarSource = "cavitiesN/" + dissimilar[i][0:posSource] + "_dis" + str(int(i/2+1)) + "N.xyz"
+    dissimilarTarget = "cavitiesN/" + dissimilar[i+1][0:posTarget] + "_dis" + str(int(i/2+1)) + "N.xyz"
     sourceDissimilarFile = open(dissimilarSource, "r")
     pointsNumber = sourceDissimilarFile.readline().replace("\n", "")
     outputFile = "output/dissimilar" + str(int(i/2+1)) + ".txt"
