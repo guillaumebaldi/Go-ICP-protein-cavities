@@ -41,6 +41,8 @@ typedef struct _POINT3D
     float x, y, z;
     int c;
 	int neighbors;
+	float density;
+	vector<float> cfpfh;
 }POINT3D;
 
 typedef struct _ROTNODE
@@ -89,6 +91,12 @@ struct TRANSCOMPATIBILITIES
 	int c;
 };
 
+struct TRANSFPFH
+{
+    float x, y ,z;
+	float fpfh;
+};
+
 class GoICP
 {
 public:
@@ -123,8 +131,11 @@ public:
 
 	float regularization;
 	float regularizationNeighbors;
+	float regularizationFPFH;
 	int optComp;
 	int norm;
+	int ponderation;
+	int cfpfh;
 	//int * compBNB;
 
 private:
@@ -171,6 +182,13 @@ private:
 
 	void assignNeighborsPrio();
 	void neighborsWeights();
+	void neighborsDensity();
+	float computeDensityDifference(bool icp, int point, float x, float y, float z);
+	float sumDensities(float x, float y, float z);
+
+	float computeFPFHDifference(bool icp, int point, float x, float y, float z);
+	float sumFPFH(float x, float y, float z);
+
 	float * weights;
 
 	//false : BNB is the last operation which decreased the error; true : ICP is the last operation which decreased the error

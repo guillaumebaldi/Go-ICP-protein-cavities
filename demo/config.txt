@@ -3,9 +3,28 @@
 # Mean Squared Error (MSE) convergence threshold
 MSEThresh=0.01
 
+
+############## Added parameters ##############
+# Norm in error function: 1 for L1, 2 for L2
 norm=2
+
+# Regularization on physico-chemical properties incompatibilities: default 0.0005
 regularization=0.0005
+
+# Regularization on direct neighbors: default 0 
 regularizationNeighbors=0.0000
+
+# Ponderation on neighbors number: 1 for yes, 0 for no
+ponderation=1
+
+# Use of CFPFH: 0 for no, 1 for CFPFH(41), 2 for FPFH only(33), 3 for color only(8)
+cfpfh=3
+
+# Regularization on FPFH
+regularizationFPFH=0.000005
+
+##############################################
+
 
 # Smallest rotation value along dimension X of rotation cube (radians)
 rotMinX=-3.1416

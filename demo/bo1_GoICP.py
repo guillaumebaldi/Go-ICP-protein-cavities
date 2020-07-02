@@ -37,13 +37,17 @@ if not os.path.exists(path):
     else:
         print ("Successfully created the directory %s " % path)
 
-#for i in range(0, 2, 2):
+excludedValues = [104, 136, 138, 140, 166, 248, 282, 312, 326, 328, 336, 340, 422, 492, 606, 634, 642, 738]
+
 for i in range(0, len(similar)-1, 2):
+#for i in range(0, len(similar)-1, 2):
     #print(similar[i] + "-" + similar[i+1]) 
+    if i in excludedValues:
+        continue
     posSource = similar[i].find('.')
     posTarget = similar[i+1].find('.')
-    similarSource = "cavitiesN/" + similar[i][0:posSource] + "_sim" + str(int(i/2+1)) + "N.xyz"
-    similarTarget = "cavitiesN/" + similar[i+1][0:posTarget] + "_sim" + str(int(i/2+1)) + "N.xyz"
+    similarSource = "cavitiesN/" + similar[i][0:posSource] + "_sim" + str(int(i/2+1)) + "N" + similar[i][posSource:]
+    similarTarget = "cavitiesN/" + similar[i+1][0:posTarget] + "_sim" + str(int(i/2+1)) + "N" + similar[i+1][posTarget:]
     sourceSimilarFile = open(similarSource, "r")
     pointsNumber = sourceSimilarFile.readline().replace("\n", "")
     outputFile = "output/similar" + str(int(i/2+1)) + ".txt"
@@ -55,8 +59,8 @@ for i in range(0, 0, 2):
     #print(similar[i] + "-" + similar[i+1]) 
     posSource = dissimilar[i].find('.')
     posTarget = dissimilar[i+1].find('.')
-    dissimilarSource = "cavitiesN/" + dissimilar[i][0:posSource] + "_dis" + str(int(i/2+1)) + "N.xyz"
-    dissimilarTarget = "cavitiesN/" + dissimilar[i+1][0:posTarget] + "_dis" + str(int(i/2+1)) + "N.xyz"
+    dissimilarSource = "cavitiesN/" + dissimilar[i][0:posSource] + "_dis" + str(int(i/2+1)) + "N" + dissimilar[i][posSource:]
+    dissimilarTarget = "cavitiesN/" + dissimilar[i+1][0:posTarget] + "_dis" + str(int(i/2+1)) + "N" + dissimilar[i+1][posTarget:]
     sourceDissimilarFile = open(dissimilarSource, "r")
     pointsNumber = sourceDissimilarFile.readline().replace("\n", "")
     outputFile = "output/dissimilar" + str(int(i/2+1)) + ".txt"

@@ -989,137 +989,136 @@ void DT3D::Build(double* _x, double* _y, double* _z, int num)
 		for(y=0; y<Ydim; y++) {
 			for(x=0; x<Xdim; x++) {
 				//inDE[z][y][x].distance = (inDE[z][y][x].distance  - sqrt(3.0))/scale;
-                inDE[z][y][x].distance = (inDE[z][y][x].distance)/scale;
-				if(inDE[z][y][x].distance < 0)
-					inDE[z][y][x].distance = 0;
+        inDE[z][y][x].distance = (inDE[z][y][x].distance)/scale;
+				if(inDE[z][y][x].distance < 0) inDE[z][y][x].distance = 0;
 
-                //printf("%d %d %d : %f %d %d %d \n",z,y,x, A.data[z][y][x].distance, A.data[z][y][x].d, A.data[z][y][x].h, A.data[z][y][x].v);
-                int xD = inDE[z][y][x].v;
-                int yD = inDE[z][y][x].h;
-                int zD = inDE[z][y][x].d;
-                EMPTYCELL c;
-                c.cx = x;
-                c.cy = y;
-                c.cz = z;
-                if(inDE[z][y][x].distance != 0) {
-                    if(xD == 0) {
-                        if(yD == 0) {
-                            if(z+zD < Zdim && inDE[z+zD][y][x].distance == 0 ) c.cz = z + zD;
-                            else if(z-zD > -1 && inDE[z-zD][y][x].distance == 0 ) c.cz = z - zD;
-                        }
-                        else if(zD == 0) {
-                            if(y+yD < Ydim && inDE[z][y+yD][x].distance == 0 ) c.cy = y + yD;
-                            else if(y-yD > -1 && inDE[z][y-yD][x].distance == 0 ) c.cy = y - yD;
-                        }
-                        else {
-                            if(y+yD < Ydim && z+zD < Zdim && inDE[z+zD][y+yD][x].distance == 0 ) {
-                                c.cy = y + yD;
-                                c.cz = z + zD;
-                            }
-                            else if(y+yD < Ydim && z-zD > -1&& inDE[z-zD][y+yD][x].distance == 0 ) {
-                                c.cy = y + yD;
-                                c.cz = z - zD;
-                            }
-                            else if(y-yD > -1 && z+zD < Zdim && inDE[z+zD][y-yD][x].distance == 0 ) {
-                                c.cy = y - yD;
-                                c.cz = z + zD;
-                            }
-                            else if(y-yD > -1 && z-zD > -1 && inDE[z-zD][y-yD][x].distance == 0 ) {
-                                c.cy = y - yD;
-                                c.cz = z - zD;
-                            }
-                        }
-                    }
-                    else if(yD == 0) {
-                        if(zD == 0) {
-                            if(x+xD < Xdim && inDE[z][y][x+xD].distance == 0 ) c.cx = x + xD;
-                            else if(x-xD > -1 && inDE[z-zD][y][x-xD].distance == 0 ) c.cx = x - xD;
-                        }
-                        else {
-                            if(x+xD < Xdim && z+zD < Zdim && inDE[z+zD][y][x+xD].distance == 0 ) {
-                                c.cx = x + xD;
-                                c.cz = z + zD;
-                            }
-                            else if(x+xD < Xdim && z-zD > -1&& inDE[z-zD][y][x+xD].distance == 0 ) {
-                                c.cx = x + xD;
-                                c.cz = z - zD;
-                            }
-                            else if(x-xD > -1 && z+zD < Zdim && inDE[z+zD][y][x-xD].distance == 0 ) {
-                                c.cx = x - xD;
-                                c.cz = z + zD;
-                            }
-                            else if(x-xD > -1 && z-zD > -1 && inDE[z-zD][y][x-xD].distance == 0 ) {
-                                c.cx = x - xD;
-                                c.cz = z - zD;
-                            }
-                        }
-                    }
-                    else if(zD == 0) {
-                        if(x+xD < Xdim && y+yD < Ydim && inDE[z][y+yD][x+xD].distance == 0 ) {
-                            c.cx = x + xD;
-                            c.cy = y + yD;
-                        }
-                        else if(x-xD > -1 && y+yD < Ydim && inDE[z][y+yD][x-xD].distance == 0 ) {
-                            c.cx = x - xD;
-                            c.cy = y + yD;
-                        }
-                        else if(x+xD < Xdim && y-yD > -1 && inDE[z][y-yD][x+xD].distance == 0 ) {
-                            c.cx = x + xD;
-                            c.cy = y - yD;
-                        }
-                        else if(x-xD > -1 && y-yD > -1 && inDE[z][y-yD][x-xD].distance == 0 ) {
-                            c.cx = x - xD;
-                            c.cy = y - yD;
-                        }
-                    }
-                    else {
-                        if(x+xD < Xdim && y+yD < Ydim && z+zD < Zdim && inDE[z+zD][y+yD][x+xD].distance == 0 ) {
-                            c.cx = x + xD;
-                            c.cy = y + yD;
-                            c.cz = z + zD;
-                        }
-                        else if(x-xD > -1 && y+yD < Ydim && z+zD < Zdim && inDE[z+zD][y+yD][x-xD].distance == 0) {
-                            c.cx = x - xD;
-                            c.cy = y + yD;
-                            c.cz = z + zD;
-                        }
-                        else if(x+xD < Xdim && y-yD > -1 && z+zD < Zdim && inDE[z+zD][y-yD][x+xD].distance == 0) {
-                            c.cx = x + xD;
-                            c.cy = y - yD;
-                            c.cz = z + zD;
-                        }
-                        else if(x+xD < Xdim && y+yD < Ydim && z-zD > -1 && inDE[z-zD][y+yD][x+xD].distance == 0) {
-                            c.cx = x + xD;
-                            c.cy = y + yD;
-                            c.cz = z - zD;
-                        }
-                        else if(x-xD > -1 && y-yD > -1 && z+zD < Zdim && inDE[z+zD][y-yD][x-xD].distance == 0) {
-                            c.cx = x - xD;
-                            c.cy = y - yD;
-                            c.cz = z + zD;
-                        }
-                        else if(x-xD > -1 && y+yD < Ydim && z-zD > -1 && inDE[z-zD][y+yD][x-xD].distance == 0) {
-                            c.cx = x - xD;
-                            c.cy = y + yD;
-                            c.cz = z - zD;
-                        }
-                        else if(x+xD < Xdim && y-yD > -1 && z-zD > -1 && inDE[z-zD][y-yD][x+xD].distance == 0) {
-                            c.cx = x + xD;
-                            c.cy = y - yD;
-                            c.cz = z - zD;
-                        }
-                        else if(x-xD > -1 && y-yD > -1 && z-zD > -1 && inDE[z-zD][y-yD][x-xD].distance == 0) {
-                            c.cx = x - xD;
-                            c.cy = y - yD;
-                            c.cz = z - zD;
-                        }
-                    }
-                }
-                //printf("%d %d %d : %d %d %d \n", z, y, x, c.cz, c.cy, c.cx);
-                emptyCells[z][y][x] = c;
+        //printf("%d %d %d : %f %d %d %d \n",z,y,x, A.data[z][y][x].distance, A.data[z][y][x].d, A.data[z][y][x].h, A.data[z][y][x].v);
+        int xD = inDE[z][y][x].v;
+        int yD = inDE[z][y][x].h;
+        int zD = inDE[z][y][x].d;
+        EMPTYCELL c;
+        c.cx = x;
+        c.cy = y;
+        c.cz = z;
+        if(inDE[z][y][x].distance != 0) {
+          if(xD == 0) {
+              if(yD == 0) {
+                  if(z+zD < Zdim && inDE[z+zD][y][x].distance == 0 ) c.cz = z + zD;
+                  else if(z-zD > -1 && inDE[z-zD][y][x].distance == 0 ) c.cz = z - zD;
+              }
+              else if(zD == 0) {
+                  if(y+yD < Ydim && inDE[z][y+yD][x].distance == 0 ) c.cy = y + yD;
+                  else if(y-yD > -1 && inDE[z][y-yD][x].distance == 0 ) c.cy = y - yD;
+              }
+              else {
+                  if(y+yD < Ydim && z+zD < Zdim && inDE[z+zD][y+yD][x].distance == 0 ) {
+                      c.cy = y + yD;
+                      c.cz = z + zD;
+                  }
+                  else if(y+yD < Ydim && z-zD > -1&& inDE[z-zD][y+yD][x].distance == 0 ) {
+                      c.cy = y + yD;
+                      c.cz = z - zD;
+                  }
+                  else if(y-yD > -1 && z+zD < Zdim && inDE[z+zD][y-yD][x].distance == 0 ) {
+                      c.cy = y - yD;
+                      c.cz = z + zD;
+                  }
+                  else if(y-yD > -1 && z-zD > -1 && inDE[z-zD][y-yD][x].distance == 0 ) {
+                      c.cy = y - yD;
+                      c.cz = z - zD;
+                  }
+              }
+          }
+          else if(yD == 0) {
+              if(zD == 0) {
+                  if(x+xD < Xdim && inDE[z][y][x+xD].distance == 0 ) c.cx = x + xD;
+                  else if(x-xD > -1 && inDE[z][y][x-xD].distance == 0 ) c.cx = x - xD;
+              }
+              else {
+                  if(x+xD < Xdim && z+zD < Zdim && inDE[z+zD][y][x+xD].distance == 0 ) {
+                      c.cx = x + xD;
+                      c.cz = z + zD;
+                  }
+                  else if(x+xD < Xdim && z-zD > -1&& inDE[z-zD][y][x+xD].distance == 0 ) {
+                      c.cx = x + xD;
+                      c.cz = z - zD;
+                  }
+                  else if(x-xD > -1 && z+zD < Zdim && inDE[z+zD][y][x-xD].distance == 0 ) {
+                      c.cx = x - xD;
+                      c.cz = z + zD;
+                  }
+                  else if(x-xD > -1 && z-zD > -1 && inDE[z-zD][y][x-xD].distance == 0 ) {
+                      c.cx = x - xD;
+                      c.cz = z - zD;
+                  }
+              }
+          }
+          else if(zD == 0) {
+              if(x+xD < Xdim && y+yD < Ydim && inDE[z][y+yD][x+xD].distance == 0 ) {
+                  c.cx = x + xD;
+                  c.cy = y + yD;
+              }
+              else if(x-xD > -1 && y+yD < Ydim && inDE[z][y+yD][x-xD].distance == 0 ) {
+                  c.cx = x - xD;
+                  c.cy = y + yD;
+              }
+              else if(x+xD < Xdim && y-yD > -1 && inDE[z][y-yD][x+xD].distance == 0 ) {
+                  c.cx = x + xD;
+                  c.cy = y - yD;
+              }
+              else if(x-xD > -1 && y-yD > -1 && inDE[z][y-yD][x-xD].distance == 0 ) {
+                  c.cx = x - xD;
+                  c.cy = y - yD;
+              }
+          }
+          else {
+              if(x+xD < Xdim && y+yD < Ydim && z+zD < Zdim && inDE[z+zD][y+yD][x+xD].distance == 0 ) {
+                  c.cx = x + xD;
+                  c.cy = y + yD;
+                  c.cz = z + zD;
+              }
+              else if(x-xD > -1 && y+yD < Ydim && z+zD < Zdim && inDE[z+zD][y+yD][x-xD].distance == 0) {
+                  c.cx = x - xD;
+                  c.cy = y + yD;
+                  c.cz = z + zD;
+              }
+              else if(x+xD < Xdim && y-yD > -1 && z+zD < Zdim && inDE[z+zD][y-yD][x+xD].distance == 0) {
+                  c.cx = x + xD;
+                  c.cy = y - yD;
+                  c.cz = z + zD;
+              }
+              else if(x+xD < Xdim && y+yD < Ydim && z-zD > -1 && inDE[z-zD][y+yD][x+xD].distance == 0) {
+                  c.cx = x + xD;
+                  c.cy = y + yD;
+                  c.cz = z - zD;
+              }
+              else if(x-xD > -1 && y-yD > -1 && z+zD < Zdim && inDE[z+zD][y-yD][x-xD].distance == 0) {
+                  c.cx = x - xD;
+                  c.cy = y - yD;
+                  c.cz = z + zD;
+              }
+              else if(x-xD > -1 && y+yD < Ydim && z-zD > -1 && inDE[z-zD][y+yD][x-xD].distance == 0) {
+                  c.cx = x - xD;
+                  c.cy = y + yD;
+                  c.cz = z - zD;
+              }
+              else if(x+xD < Xdim && y-yD > -1 && z-zD > -1 && inDE[z-zD][y-yD][x+xD].distance == 0) {
+                  c.cx = x + xD;
+                  c.cy = y - yD;
+                  c.cz = z - zD;
+              }
+              else if(x-xD > -1 && y-yD > -1 && z-zD > -1 && inDE[z-zD][y-yD][x-xD].distance == 0) {
+                  c.cx = x - xD;
+                  c.cy = y - yD;
+                  c.cz = z - zD;
+              }
+          }
+        }
+        //printf("%d %d %d : %d %d %d \n", z, y, x, c.cz, c.cy, c.cx);
+        emptyCells[z][y][x] = c;
 			}
 		}
-    }
+  }
 }
 
 float DT3D::Distance(double _x, double _y, double _z, int &cx, int &cy, int &cz)

@@ -96,6 +96,8 @@ float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
 
 	// Transform point cloud and use DT to determine the L2 error
 	error = 0;
+	//float dens = 0;
+	float fpfh = 0;
 	for(i = 0; i < Nd; i++)
 	{
 		POINT3D& p = pData[i];
@@ -116,7 +118,11 @@ float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
 		{
             minDis[i] = dt.Distance(pDataTempICP[i].x, pDataTempICP[i].y, pDataTempICP[i].z, x, y, z);
 		}
+		//dens += computeDensityDifference(true, i, 0, 0 ,0);
+		if(cfpfh != 0) fpfh += computeFPFHDifference(true, i, 0, 0 ,0);
+		//error = error * computeDensityDifference(true, i, 0, 0 ,0);
 	}
+	fpfh = fpfh / Nd;
 	if(regularizationNeighbors > 0) {
 		int neighbors = compareNeighbors(true, 0, 0, 0);
 		cout << "ICP : " << neighbors << endl;
@@ -125,6 +131,10 @@ float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
 	if(regularization > 0) {
 		int incomp = countCompatibilities(true);
     	error += regularization * (incomp*incomp);
+		//error += regularization * (dens * dens);
+	}
+	if(regularizationFPFH > 0) {
+		error += regularizationFPFH * (fpfh * fpfh);
 	}
 	
 	if(doTrim)
@@ -137,7 +147,7 @@ float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
 			error += minDis[i]*minDis[i];
 		}
 	}
-
+	cout << endl;
 	return error;
 }
 
@@ -222,7 +232,9 @@ void GoICP::Initialize()
 	{
 		weights[i] = 1;
 	}
-	neighborsWeights();
+	if(ponderation == 1) neighborsWeights();
+	//neighborsDensity();
+
 	SSEThresh = MSEThresh * inlierNum;
 }
 
@@ -262,6 +274,7 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 	queueTrans.push(initNodeTrans);
 
 	vector<TRANSCOMPATIBILITIES> storedCompatibilities;
+	vector<TRANSFPFH> storedFPFH;
 	//
 	while(1)
 	{
@@ -340,7 +353,7 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
                 int x, y, z = 0;
                 //cout << i << " : ";
                 minDis[i] = weights[i] * dt.Distance(pDataTemp[i].x + transX, pDataTemp[i].y + transY, pDataTemp[i].z + transZ, x, y, z);
-
+				//minDis[i] = minDis[i] * computeDensityDifference(false, i, pDataTemp[i].x + transX, pDataTemp[i].y + transY, pDataTemp[i].z + transZ);
 				
 
 				/*vector<POINT3D> neighbors;
@@ -483,7 +496,9 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
             //lb += regularizationNeighbors * (neighbors*neighbors);
 
 			int minNeighbors, maxNeighbors, minIncomp, maxIncomp;
-			if(regularization > 0 || regularizationNeighbors > 0) {	
+			//float minDens, maxDens;
+			float minFPFH, maxFPFH;
+			if(regularization > 0 || regularizationNeighbors > 0 || ( regularizationFPFH > 0 && cfpfh != 0 ) ) {	
 				float xIndex = nodeTrans.x;
 				float yIndex = nodeTrans.y;
 				float zIndex = nodeTrans.z;
@@ -504,11 +519,34 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 					}
 					maxIncomp = incompFirst;
 					minIncomp = incompFirst;
+
+					/*float densFirst = sumDensities(xIndex, yIndex, zIndex);
+					maxDens = densFirst;
+					minDens = densFirst;*/
+					
 				}
 				if(regularizationNeighbors > 0) {
 					int neighborsFirst = compareNeighbors(false, xIndex, yIndex, zIndex);
 					maxNeighbors = neighborsFirst;
 					minNeighbors = neighborsFirst;
+				}
+				if(regularizationFPFH > 0) {
+					int FPFHFirst = 0;
+					auto it = find_if(storedFPFH.begin(), storedFPFH.end(), [&xIndex, &yIndex, &zIndex](const TRANSFPFH& obj) { if (obj.x == xIndex && obj.y == yIndex && obj.z == zIndex) return true; return false; });
+    				if(it != storedFPFH.end()) {
+ 						FPFHFirst = it->fpfh;
+					}
+					else {
+						TRANSFPFH t;
+						t.x = xIndex;
+						t.y = yIndex;
+						t.z = zIndex;
+						t.fpfh = sumFPFH(xIndex, yIndex, zIndex);
+    				    storedFPFH.push_back(t);
+						FPFHFirst = t.fpfh;
+					}
+					maxFPFH = FPFHFirst;
+					minFPFH = FPFHFirst;
 				}
 				for(c = 1; c < 8; c++) {
 					//cout << c << endl;
@@ -519,6 +557,24 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 						int tempNeighbors = compareNeighbors(false, xIndex, yIndex, zIndex);
 						if(tempNeighbors > maxNeighbors) maxNeighbors = tempNeighbors;
 						if(tempNeighbors < minNeighbors) minNeighbors = tempNeighbors;
+					}
+					if(regularizationFPFH > 0) {
+						int tempFPFH = 0;
+						auto it2 = find_if(storedFPFH.begin(), storedFPFH.end(), [&xIndex, &yIndex, &zIndex](const TRANSFPFH& obj) { if (obj.x == xIndex && obj.y == yIndex && obj.z == zIndex) return true; return false; });
+    					if(it2 != storedFPFH.end()) {
+							tempFPFH = it2->fpfh;
+						}
+						else {
+							TRANSFPFH t;
+							t.x = xIndex;
+							t.y = yIndex;
+							t.z = zIndex;
+							t.fpfh = sumFPFH(xIndex, yIndex, zIndex);
+    					    storedFPFH.push_back(t);
+							tempFPFH = t.fpfh;
+    					}
+						if(tempFPFH > maxFPFH) maxFPFH = tempFPFH;
+						if(tempFPFH < minFPFH) minFPFH = tempFPFH;
 					}
 					if(regularization > 0) {
 						int tempComp = 0;
@@ -537,17 +593,30 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
     					}
 						if(tempComp > maxIncomp) maxIncomp = tempComp;
 						if(tempComp < minIncomp) minIncomp = tempComp;
+						
+						/*float tempDens = sumDensities(xIndex, yIndex, zIndex);
+						if(tempDens > maxDens) maxDens = tempDens;
+						if(tempDens < minDens) minDens = tempDens;*/
+						
 					}	
 				}
 				if(regularization > 0) {
 					ub += regularization * (maxIncomp*maxIncomp);
 					lb += regularization * (minIncomp*minIncomp);
+					/*ub += regularization * (maxDens*maxDens);
+					lb += regularization * (minDens*minDens);*/
+					
 				}
 				if(regularizationNeighbors > 0) {
 					ub += regularizationNeighbors * (maxNeighbors*maxNeighbors);
 					lb += regularizationNeighbors * (minNeighbors*minNeighbors);
 				}
+				if(regularizationFPFH > 0) {
+					ub += regularizationFPFH * (maxFPFH*maxFPFH);
+					lb += regularizationFPFH * (minFPFH*minFPFH);
+				}
 			}
+			//cout << ub << " " << lb << endl;
 			
 
 			// If upper bound is better than best, update optErrorT and optTransOut (optimal translation node)
@@ -608,6 +677,7 @@ float GoICP::OuterBnB()
         if(norm == 1) optError += minDis[i];
     }
 	if(regularization > 0) optError += regularization * (Nd*Nd);
+	optError += regularizationFPFH * (100*8 * 100*8);
 	if(regularizationNeighbors > 0) optError += regularizationNeighbors * (Nd*6*Nd*6);
 	cout << "Error*: " << optError << " (Init)" << endl;
 
@@ -917,7 +987,7 @@ void GoICP::updateCompatibilities() {
             countNotComp++;
         }
     }
-	cout << endl;
+	//cout << endl;
 	optComp = countNotComp;
     cout << "Compatibilités BNB : " << Nd-optComp << endl;
 }
@@ -1475,6 +1545,7 @@ void GoICP::assignNeighborsPrio() {
  */
 void GoICP::neighborsWeights() {
 	int maxN = 0;
+	//int maxN2 = 0;
 	int minN = 100;
 	float distance = 0.035;
 	while(maxN < 19) {
@@ -1482,6 +1553,7 @@ void GoICP::neighborsWeights() {
 		{
 			//cout << i << " ---> ";
 			int count = 0;
+			//int countProperty = 0;
 			for (size_t j = 0; j < Nd; j++)
     	    { 
     	        if(j == i) {
@@ -1490,15 +1562,22 @@ void GoICP::neighborsWeights() {
     	        if(isNeighbor(distance, pData[i], pData[j])) {
     	            //cout << j << " - ";
     	            count++;
+					/*if(pData[i].c == pData[j].c) {
+						countProperty += 2;
+					}*/
     	        }
     	    }
-			if (count>maxN) {
+			//pData[i].neighbors = count + countProperty;
+			pData[i].neighbors = count;
+			/*if ( (count + countProperty) >maxN) {
+				maxN = count + countProperty;
+			}*/
+			if(count > maxN) {
 				maxN = count;
 			}
 			if(count < minN) {
 				minN = count;
 			}
-			pData[i].neighbors = count;
 			//cout << " ---> " << pData[i].neighbors << endl;
 		}
 		distance = distance + 0.001;
@@ -1507,9 +1586,217 @@ void GoICP::neighborsWeights() {
 	for (size_t i = 0; i < Nd; i++)
 	{
 		if(pData[i].neighbors == 0) pData[i].neighbors = 1;
-		float f = (float)minN / (float)pData[i].neighbors;
+		//float f = (1 - ( (float)pData[i].neighbors / (float)maxN ) ) * 2;
+		float f = ((float)minN / (float)pData[i].neighbors) * 2;
 		weights[i] += f; 
-		//cout << pData[i].neighbors << " : " << f << " / ";
+		//cout << i << " : " << pData[i].neighbors << " / ";
 	}
 	//cout << endl;
+}
+
+void GoICP::neighborsDensity() {
+	int maxN = 0;
+	int minN = 100;
+	float distance = 0.035;
+	while(maxN < 19) {
+		for (size_t i = 0; i < Nd; i++)
+		{
+			//cout << i << " ---> ";
+			int count = 0;
+			int countProperty = 0;
+			for (size_t j = 0; j < Nd; j++)
+    	    { 
+    	        if(j == i) {
+    	            continue;
+    	        }
+    	        if(isNeighbor(distance, pData[i], pData[j])) {
+    	            //cout << j << " - ";
+    	            count++;
+					if(pData[i].c == pData[j].c) {
+						countProperty++;
+					}
+    	        }
+    	    }
+			pData[i].neighbors = count;
+			pData[i].density = (float)countProperty / (float)count;
+			if(count > maxN) {
+				maxN = count;
+			}
+			if(count < minN) {
+				minN = count;
+			}
+			//cout << " ---> " << pData[i].neighbors << endl;
+		}
+		distance = distance + 0.001;
+	}
+	if(minN == 0) minN = 1;
+	for (size_t i = 0; i < Nd; i++)
+	{
+		if(pData[i].neighbors == 0) pData[i].neighbors = 1;
+		//float f = (1 - ( (float)pData[i].neighbors / (float)maxN ) ) * 2;
+		float f = ((float)minN / (float)pData[i].neighbors) * 2;
+		weights[i] += f; 
+		//cout << i << " : " << pData[i].neighbors << " / ";
+	}
+	maxN = 0;
+	distance = 0.035;
+	while(maxN < 19) {
+		for (size_t i = 0; i < Nm; i++)
+		{
+			//cout << i << " ---> ";
+			int count = 0;
+			int countProperty = 0;
+			for (size_t j = 0; j < Nm; j++)
+    	    { 
+    	        if(j == i) {
+    	            continue;
+    	        }
+    	        if(isNeighbor(distance, pModel[i], pModel[j])) {
+    	            //cout << j << " - ";
+    	            count++;
+					if(pModel[i].c == pModel[j].c) {
+						countProperty++;
+					}
+    	        }
+    	    }
+			pModel[i].neighbors = count;
+			pModel[i].density = (float)countProperty / (float)count;
+			if(count > maxN) {
+				maxN = count;
+			}
+			//cout << " ---> " << pData[i].neighbors << endl;
+		}
+		distance = distance + 0.001;
+	}
+
+	/*for (size_t i = 0; i < Nd; i++)
+	{
+		cout << i << " : " << pData[i].neighbors << "-" << pData[i].density << " / ";
+	}
+	cout << endl;
+	for (size_t i = 0; i < Nm; i++)
+	{
+		cout << i << " : " << pModel[i].neighbors << "-" << pModel[i].density << " / ";
+	}
+	cout << endl;*/
+}
+
+float GoICP::computeDensityDifference(bool icp, int point, float x, float y, float z) {
+	float d = 0;
+	
+	if(icp) {
+		d =  ((abs(pData[icp3d.points[point].id_data].density - pModel[icp3d.points[point].id_model].density)) );
+	}
+	else {
+		int rx = ROUND((x - dt.xMin) * dt.scale);
+    	int ry = ROUND((y - dt.yMin) * dt.scale);
+    	int rz = ROUND((z - dt.zMin) * dt.scale);
+    	if(rx < 0) rx = 0;
+    	if(rx>=dt.SIZE) rx = dt.SIZE - 1;
+    	if(ry < 0) ry = 0;
+    	if(ry>=dt.SIZE) ry = dt.SIZE - 1;
+    	if(rz < 0) rz = 0;
+    	if(rz>=dt.SIZE) rz = dt.SIZE - 1;
+    	int cx = dt.emptyCells[rz][ry][rx].cx;
+    	int cy = dt.emptyCells[rz][ry][rx].cy;
+    	int cz = dt.emptyCells[rz][ry][rx].cz;
+		float minD = 100;
+		//cout << point << " - " << cz << "/" << cy << "/" << cx << endl;
+		for(int p : dt.cellPoints[cz][cy][cx].points) {
+			//cout << p << ":" << pModel[p].density << " / ";
+            if(  ((abs(pData[point].density - pModel[p].density) ) ) < minD) {
+				minD =   ((abs(pData[point].density - pModel[p].density) ) );
+			}
+        }
+		//cout << endl;
+		d = minD;
+	}
+
+	return d;
+}
+
+float GoICP::sumDensities(float x, float y, float z) {
+	float sum = 0;
+	for (int i = 0; i < Nd; i++)
+	{
+		sum += computeDensityDifference(false, i, pDataTemp[i].x + x, pDataTemp[i].y + y, pDataTemp[i].z + z);
+	}
+	return sum;
+}
+
+
+float GoICP::computeFPFHDifference(bool icp, int point, float x, float y, float z) {
+	float d = 0;
+	
+	if(icp) {
+		if(cfpfh == 1) {
+			for(int i = 0; i < 41; i++) {
+				d += abs(pData[icp3d.points[point].id_data].cfpfh[i] - pModel[icp3d.points[point].id_model].cfpfh[i]);
+			}	
+		}
+		else if(cfpfh == 2) {
+			for(int i = 0; i < 33; i++) {
+				d += abs(pData[icp3d.points[point].id_data].cfpfh[i] - pModel[icp3d.points[point].id_model].cfpfh[i]);
+			}	
+		}
+		else if(cfpfh == 3) {
+			for(int i = 33; i < 41; i++) {
+				d += abs(pData[icp3d.points[point].id_data].cfpfh[i] - pModel[icp3d.points[point].id_model].cfpfh[i]);
+			}	
+		}
+	}
+	else {
+		int rx = ROUND((x - dt.xMin) * dt.scale);
+    	int ry = ROUND((y - dt.yMin) * dt.scale);
+    	int rz = ROUND((z - dt.zMin) * dt.scale);
+    	if(rx < 0) rx = 0;
+    	if(rx>=dt.SIZE) rx = dt.SIZE - 1;
+    	if(ry < 0) ry = 0;
+    	if(ry>=dt.SIZE) ry = dt.SIZE - 1;
+    	if(rz < 0) rz = 0;
+    	if(rz>=dt.SIZE) rz = dt.SIZE - 1;
+    	int cx = dt.emptyCells[rz][ry][rx].cx;
+    	int cy = dt.emptyCells[rz][ry][rx].cy;
+    	int cz = dt.emptyCells[rz][ry][rx].cz;
+		float minD = 1000000000;
+		//cout << point << " - " << cz << "/" << cy << "/" << cx << endl;
+		for(int p : dt.cellPoints[cz][cy][cx].points) {
+			//cout << p << ":" << pModel[p].density << " / ";
+			float diff = 0;
+
+			if(cfpfh == 1) {
+				for(int i = 0; i < 41; i++) {
+					diff += (abs(pData[point].cfpfh[i] - pModel[p].cfpfh[i]));
+				}	
+			}
+			else if(cfpfh == 2) {
+				for(int i = 0; i < 33; i++) {
+					diff += (abs(pData[point].cfpfh[i] - pModel[p].cfpfh[i]));
+				}	
+			}
+			else if(cfpfh == 3) {
+				for(int i = 33; i < 41; i++) {
+					diff += (abs(pData[point].cfpfh[i] - pModel[p].cfpfh[i]));
+				}	
+			}
+			
+            if(diff < minD) {
+				minD = diff;
+			}
+        }
+		//cout << endl;
+		d = minD;
+	}
+
+	return d;
+}
+
+float GoICP::sumFPFH(float x, float y, float z) {
+	float sum = 0;
+	for (int i = 0; i < Nd; i++)
+	{
+		sum += computeFPFHDifference(false, i, pDataTemp[i].x + x, pDataTemp[i].y + y, pDataTemp[i].z + z);
+	}
+	sum = sum / Nd;
+	return sum;
 }

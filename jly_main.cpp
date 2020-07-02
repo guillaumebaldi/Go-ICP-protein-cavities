@@ -159,9 +159,14 @@ void readConfig(string FName, GoICP & goicp)
 	goicp.initNodeTrans.z = config.getF("transMinZ");
 	goicp.initNodeTrans.w = config.getF("transWidth");
 	goicp.trimFraction = config.getF("trimFraction");
+
 	goicp.regularization = config.getF("regularization");
 	goicp.regularizationNeighbors = config.getF("regularizationNeighbors");
+	goicp.regularizationFPFH = config.getF("regularizationFPFH");
+	goicp.cfpfh = config.getI("cfpfh");
 	goicp.norm = config.getI("norm");
+	goicp.ponderation = config.getI("ponderation");
+
 	// If < 0.1% trimming specified, do no trimming
 	if(goicp.trimFraction < 0.001)
 	{
@@ -179,21 +184,36 @@ void readConfig(string FName, GoICP & goicp)
 int loadPointCloud(string FName, int & N, POINT3D ** p)
 {
 	int i;
-	ifstream ifile;
+	ifstream ifile, cfpfhfile;
+
+	string fileName = "cfpfh/" + FName.substr(10, 14) + ".cfpfh";
+	cfpfhfile.open(fileName.c_str(), ifstream::in);
 
 	ifile.open(FName.c_str(), ifstream::in);
+
 	if(!ifile.is_open())
 	{
 		cout << "Unable to open point file '" << FName << "'" << endl;
 		exit(-1);
 	}
+	if(!cfpfhfile.is_open())
+	{
+		cout << "Unable to open fpfh file '" << fileName << "'" << endl;
+		exit(-1);
+	}
 	ifile >> N; // First line has number of points to follow
 	*p = (POINT3D *)malloc(sizeof(POINT3D) * N);
+	float bin;
 	for(i = 0; i < N; i++)
 	{
         ifile >> (*p)[i].x >> (*p)[i].y >> (*p)[i].z >> (*p)[i].c;
+		
+		for(int j = 0; j < 41; j++) {
+			cfpfhfile >> bin;
+			(*p)[i].cfpfh.push_back(bin);
+		}
 	}
-
+	
 	ifile.close();
 
 	return 0;
