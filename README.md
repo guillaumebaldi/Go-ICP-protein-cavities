@@ -14,8 +14,8 @@ Adaptation of "Go-ICP: A Globally Optimal Solution to 3D ICP Point-Set Registrat
 
 ### Running 
 
-"./GoICP <TARGET FILE> <SOURCE FILE> <NUMBER OF POINTS SOURCE> <CONFIG FILE>  <OUTPUT FILE> <PAIR NUMBER> "
-<PAIR NUMBER>: important if you use Go-ICP on a dataset, to iterate through it and keep the output files of all pairs
+"./GoICP \<TARGET FILE\> \<SOURCE FILE\> \<NUMBER OF POINTS SOURCE\> \<CONFIG FILE\> \<OUTPUT FILE\> \<PAIR NUMBER\> "
+\<PAIR NUMBER\>: important if you use Go-ICP on a dataset, to iterate through it and keep the output files of all pairs
 
 bo1_GoICP.py: iterate through all pairs of a dataset. Make sure you have the folder "cavities" with the cavities point clouds at format .mol2 in it, and a file at format .tsv with all the pairs of the dataset and indicate it to Line6 of the file.
 
