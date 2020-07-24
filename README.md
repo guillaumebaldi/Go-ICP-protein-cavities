@@ -14,13 +14,12 @@ Adaptation of "Go-ICP: A Globally Optimal Solution to 3D ICP Point-Set Registrat
 
 ### Running 
 
-"./GoICP \<TARGET FILE\> \<SOURCE FILE\> \<NUMBER OF POINTS SOURCE\> \<CONFIG FILE\> \<OUTPUT FILE\> \<PAIR NUMBER\> "
-
+* "./GoICP \<TARGET FILE\> \<SOURCE FILE\> \<NUMBER OF POINTS SOURCE\> \<CONFIG FILE\> \<OUTPUT FILE\> \<PAIR NUMBER\>"
 \<PAIR NUMBER\>: important if you use Go-ICP on a dataset, to iterate through it and keep the output files of all pairs
 
-bo1_GoICP.py: iterate through all pairs of a dataset. Make sure you have the folder "cavities" with the cavities point clouds at format .mol2 in it, and a file at format .tsv with all the pairs of the dataset and indicate it to Line6 of the file.
+* bo1_GoICP.py: iterate through all pairs of a dataset. Make sure you have the folder "cavities" with the cavities point clouds at format .mol2 in it, and a file at format .tsv with all the pairs of the dataset and indicate it to Line6 of the file.
 
-Make sure you have the folders "cavities" with all the cavities point clouds at format .mol2, "chains" with the proteins files at format .mol2 and "ref_proteins" with the aligned proteins.
+* Make sure you have the folders "cavities" with all the cavities point clouds at format .mol2, "chains" with the proteins files at format .mol2 and "ref_proteins" with the aligned proteins.
 Moreover you must have the folders "cavitiesN", "cavitiesA" and "cavitiesR" to get the output of Go-ICP, with respectively the normalized point clouds, the points clouds after the transformation is applied, and the point clouds rescaled used for the RMSD computation. 
 
-A file named "ResultsRMSD.txt" is created, it contains the RMSD for each pair tested of the dataset.
+* A file named "ResultsRMSD.txt" is created, it contains the RMSD for each pair tested of the dataset.
