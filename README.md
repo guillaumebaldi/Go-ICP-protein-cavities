@@ -1,7 +1,7 @@
 Adaptation of "Go-ICP: A Globally Optimal Solution to 3D ICP Point-Set Registration" by Yang et al. https://github.com/yangjiaolong/Go-ICP for protein cavities point clouds registration.
 
-<img src="alignedCavitiesCloud.png" width="300" height="300""/>
-<img src="alignedProteins.png" width="300" height="300""/>
+<img src="alignedCavitiesCloud.png" width="30%"/>
+<img src="alignedProteins.png" width="30%"/>
 
 ### Modifications to the original code
 - jly_main.cpp: Normalization and centralization of point clouds, handle new config parameters and c-FPFH files, RMSD computation
