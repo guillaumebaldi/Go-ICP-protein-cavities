@@ -22,6 +22,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *********************************************************************/
 
+/********************************************************************
+Guillaume modifications:
+- Modifications to ICP and BnB to add parameters
+- Fonctions on parameters
+*********************************************************************/
+
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
@@ -47,6 +53,8 @@ GoICP::GoICP()
 
 	doTrim = true;
 
+	//////////////////////////////////////////////////////
+	//Compatibilities between physico-chemical properties
     /*compatibilities.insert(make_pair(CA, vector<properties>{CA, CZ}));
     compatibilities.insert(make_pair(CZ, vector<properties>{CZ, CA}));
     compatibilities.insert(make_pair(N, vector<properties>{N, NZ, OG}));
@@ -64,6 +72,7 @@ GoICP::GoICP()
     compatibilities.insert(make_pair(OG, vector<properties>{OG}));
     compatibilities.insert(make_pair(DU, vector<properties>{DU}));
 	//compBNB = (int*)malloc(sizeof(int)*Nd);
+	//////////////////////////////////////////////////////
 }
 
 // Build Distance Transform
@@ -79,8 +88,11 @@ void GoICP::BuildDT()
 		z[i] = pModel[i].z;
 	}
 	dt.Build(x, y, z, Nm);
+	//////////////////////////////////////////////////////
+	//Property of DT cells and direct neighbors of points
     assignCellColor();
 	if(regularizationNeighbors > 0) assignNeighbors();
+	//////////////////////////////////////////////////////
 	delete(x);
 	delete(y);
 	delete(z);
@@ -89,15 +101,19 @@ void GoICP::BuildDT()
 // Run ICP and calculate sum squared L2 error
 float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
 {
-  int i;
+	int i;
 	float error, dis;
 
 	icp3d.Run(D_icp, Nd, R_icp, t_icp); // data cloud, # data points, rotation matrix, translation matrix
 
 	// Transform point cloud and use DT to determine the L2 error
 	error = 0;
+
+	//////////////////////////////////////////////////////
 	//float dens = 0;
 	float fpfh = 0;
+	//////////////////////////////////////////////////////
+
 	for(i = 0; i < Nd; i++)
 	{
 		POINT3D& p = pData[i];
@@ -107,22 +123,29 @@ float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
         int x, y, z = 0;
 		if(!doTrim)
 		{
-            //cout << i << " : ";
+			//////////////////////////////////////////////////////
+			//Add weights and norm consideration
             dis = weights[i] * dt.Distance(pDataTempICP[i].x, pDataTempICP[i].y, pDataTempICP[i].z, x, y, z);
-            /*closestEmptyCell(x, y, z);
-            cout << endl;*/
 			if(norm == 2) error += dis * dis;
             if(norm == 1) error += dis;
+			//////////////////////////////////////////////////////
 		}
 		else
 		{
             minDis[i] = dt.Distance(pDataTempICP[i].x, pDataTempICP[i].y, pDataTempICP[i].z, x, y, z);
 		}
+
+		//////////////////////////////////////////////////////
+		//c-FPFH and density
 		//dens += computeDensityDifference(true, i, 0, 0 ,0);
 		if(cfpfh != 0) fpfh += computeFPFHDifference(true, i, 0, 0 ,0);
 		//error = error * computeDensityDifference(true, i, 0, 0 ,0);
+		//////////////////////////////////////////////////////
 	}
+	//////////////////////////////////////////////////////
+	//c-FPFH computation and add of parameters to error function according to their regularization
 	fpfh = fpfh / Nd;
+	geomErrorTemp = error;
 	if(regularizationNeighbors > 0) {
 		int neighbors = compareNeighbors(true, 0, 0, 0);
 		cout << "ICP : " << neighbors << endl;
@@ -131,12 +154,15 @@ float GoICP::ICP(Matrix& R_icp, Matrix& t_icp)
 	if(regularization > 0) {
 		int incomp = countCompatibilities(true);
     	error += regularization * (incomp*incomp);
+		incompErrorTemp = abs(error - geomErrorTemp);
 		//error += regularization * (dens * dens);
 	}
 	if(regularizationFPFH > 0) {
 		error += regularizationFPFH * (fpfh * fpfh);
+		FPFHErrorTemp = abs(error - incompErrorTemp - geomErrorTemp);
 	}
-	
+	//////////////////////////////////////////////////////
+
 	if(doTrim)
 	{
 		//qsort(minDis, Nd, sizeof(float), cmp);
@@ -162,8 +188,6 @@ void GoICP::Initialize()
 	normData = (float*)malloc(sizeof(float)*Nd);
 	for(i = 0; i < Nd; i++)
 	{
-        //if(norm == 2) normData[i] = sqrt(pData[i].x*pData[i].x + pData[i].y*pData[i].y + pData[i].z*pData[i].z);
-        //if(norm == 1) normData[i] = pData[i].x + pData[i].y + pData[i].z;
 		normData[i] = sqrt(pData[i].x*pData[i].x + pData[i].y*pData[i].y + pData[i].z*pData[i].z);
 	}
 
@@ -226,6 +250,9 @@ void GoICP::Initialize()
 	{
 		inlierNum = Nd;
 	}
+
+	//////////////////////////////////////////////////////
+	//Assignation of neighbors to discard points with the least numbers, and weights ponderation
 	//assignNeighborsPrio();
 	weights = (float*)malloc(sizeof(float)*Nd);
 	for (size_t i = 0; i < Nd; i++)
@@ -234,6 +261,7 @@ void GoICP::Initialize()
 	}
 	if(ponderation == 1) neighborsWeights();
 	//neighborsDensity();
+	//////////////////////////////////////////////////////
 
 	SSEThresh = MSEThresh * inlierNum;
 }
@@ -264,8 +292,6 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 	TRANSNODE nodeTrans, nodeTransParent;
 	priority_queue<TRANSNODE> queueTrans;
 
-    //POINT3D corners[8];
-
 	// Set optimal translation error to overall so-far optimal error
 	// Investigating translation nodes that are sub-optimal overall is redundant
 	optErrorT = optError;
@@ -273,9 +299,12 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 	// Push top-level translation node into the priority queue
 	queueTrans.push(initNodeTrans);
 
+	//////////////////////////////////////////////////////
+	//Keep in memory the incompabilities and c-FPFH difference for the already tested translations to save time
 	vector<TRANSCOMPATIBILITIES> storedCompatibilities;
 	vector<TRANSFPFH> storedFPFH;
-	//
+	//////////////////////////////////////////////////////
+	
 	while(1)
 	{
 		if(queueTrans.empty()) {
@@ -299,39 +328,22 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 			nodeTrans.y = nodeTransParent.y + (j>>1&1)*nodeTrans.w ;
 			nodeTrans.z = nodeTransParent.z + (j>>2&1)*nodeTrans.w ;
 
-            //cout << "TRANSLATION " << j << " : ";
-            //cout << nodeTrans.x << " " << nodeTrans.y << " " << nodeTrans.z << " " << nodeTrans.w << " " << nodeTrans.lb << " " << nodeTrans.ub; << endl;*/
-
 			transX = nodeTrans.x + nodeTrans.w/2;
 			transY = nodeTrans.y + nodeTrans.w/2;
 			transZ = nodeTrans.z + nodeTrans.w/2;
 
-            /*for(c = 0; c < 8; c++) {
-                corners[c].x = nodeTrans.x + (c&1)*nodeTrans.w ;
-                corners[c].y = nodeTrans.y + (c>>1&1)*nodeTrans.w ;
-                corners[c].z = nodeTrans.z + (c>>2&1)*nodeTrans.w ;
-            }*/
-            /*c0.x = nodeTrans.x;                 c0.y = nodeTrans.y;                 c0.z = nodeTrans.z;
-            c1.x = nodeTrans.x + nodeTrans.w;   c1.y = nodeTrans.y;                 c1.z = nodeTrans.z;
-            c2.x = nodeTrans.x;                 c2.y = nodeTrans.y + nodeTrans.w;   c2.z = nodeTrans.z;
-            c3.x = nodeTrans.x;                 c3.y = nodeTrans.y;                 c3.z = nodeTrans.z + nodeTrans.w;
-            c4.x = nodeTrans.x + nodeTrans.w;   c4.y = nodeTrans.y + nodeTrans.w;   c4.z = nodeTrans.z;
-            c5.x = nodeTrans.x + nodeTrans.w;   c5.y = nodeTrans.y;                 c5.z = nodeTrans.z + nodeTrans.w;
-            c6.x = nodeTrans.x;                 c6.y = nodeTrans.y + nodeTrans.w;   c6.z = nodeTrans.z + nodeTrans.w;
-            c7.x = nodeTrans.x + nodeTrans.w;   c7.y = nodeTrans.y + nodeTrans.w;   c7.z = nodeTrans.z + nodeTrans.w;*/
-
-            //cout << pDataTemp[0].x + transX << " " << pModel[icp3d.optPoints[0].id_model].x <<endl;
             int comp = 0;
             int notComp = 0;
 
-			int countScattering = 0;
+			/*int countScattering = 0;
 			int countPlanarity = 0;
-			int countArete = 0;
+			int countArete = 0;*/
 			
 			// For each data point, calculate the distance to it's closest point in the model cloud
 			for(i = 0; i < Nd; i++)
 			{
-				
+				//////////////////////////////////////////////////////
+				//METHOD1: points always compatible and incompatible according to 8 corners
                 /*int itmp, ctmp = 0;
                 for(c = 0; c < 8; c++) {
                     if(checkCompatibility(i, pDataTemp[i].x + corners[c].x, pDataTemp[i].y + corners[c].y, pDataTemp[i].z + corners[c].z)) {
@@ -347,47 +359,17 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
                 if(itmp == 8) {
                     notComp++;
                 }*/
-
+				//////////////////////////////////////////////////////
+				
 				// Find distance between transformed point and closest point in model set ||R_r0 * x + t0 - y||
 				// pDataTemp is the data points rotated by R0
-                int x, y, z = 0;
-                //cout << i << " : ";
+                //////////////////////////////////////////////////////
+				//Add weights, density
+				int x, y, z = 0;
                 minDis[i] = weights[i] * dt.Distance(pDataTemp[i].x + transX, pDataTemp[i].y + transY, pDataTemp[i].z + transZ, x, y, z);
 				//minDis[i] = minDis[i] * computeDensityDifference(false, i, pDataTemp[i].x + transX, pDataTemp[i].y + transY, pDataTemp[i].z + transZ);
-				
+				//////////////////////////////////////////////////////
 
-				/*vector<POINT3D> neighbors;
-				POINT3D p;
-				p.x = pDataTemp[i].x + transX;
-				p.y = pDataTemp[i].y + transY;
-				p.z = pDataTemp[i].z + transZ;
-				p.c = pDataTemp[i].c;
-				neighbors.push_back(p);
-				for (size_t n = 0; n < Nm; n++)
-				{
-					if(n == i) {
-						continue;
-					}
-					if(isNeighbor(p, pModel[n])) {
-						neighbors.push_back(pModel[n]);
-					}
-				}
-
-				double xMean, yMean, zMean = 0;
-       			centralizePoints(neighbors, xMean, yMean, zMean);
-
-       			double covarianceMatrix[9];
-       			calculateCovarianceMatrix(neighbors, covarianceMatrix);
-       			vector<double> eigenvalues;
-       			calculateEigen(covarianceMatrix, eigenvalues);
-       			double planarity = computePlanarity(eigenvalues[0], eigenvalues[1], eigenvalues[2]);
-       			double scattering = computeScattering(eigenvalues[0], eigenvalues[2]);
-				if(planarity > 0.7) countPlanarity++;
-				if(scattering > 0.7) countScattering++;
-				if(scattering < 0.25 && planarity < 0.25) countArete++;*/
-
-                /*closestEmptyCell(x, y, z);
-                cout << endl;*/
 				// Subtract the rotation uncertainty radius if calculating the rotation lower bound
 				// maxRotDisL == NULL when calculating the rotation upper bound
 				if(maxRotDisL)
@@ -398,8 +380,7 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 					minDis[i] = 0;
 				}
 			}
-            //cout << comp << " / " << notComp << endl;
-			//cout << "PLANARITY : " << countPlanarity << " /// SCATTERING : " << countScattering << " /// ARETES : " << countArete << endl; 
+
 			if(doTrim)
 			{
 				// Sort by distance
@@ -407,13 +388,16 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 				//myqsort(minDis, Nd, inlierNum);
 				intro_select(minDis,0,Nd-1,inlierNum-1);
 			}
-			//sortDistances();
+
 			// For each data point, find the incremental upper and lower bounds
 			ub = 0;
 			for(i = 0; i < inlierNum; i++)
             {
+				//////////////////////////////////////////////////////
+				//Norm distinction
 				if(norm == 2) ub += minDis[i] * minDis[i];
             	if(norm == 1) ub += minDis[i];
+				//////////////////////////////////////////////////////
 			}
 
 			lb = 0;
@@ -422,82 +406,33 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 				// Subtract the translation uncertainty radius
 				dis = minDis[i] - maxTransDis;
 				if(dis > 0) {
+					//////////////////////////////////////////////////////
+					//Norm distinction
 					if(norm == 2) lb += dis * dis;
             		if(norm == 1) lb += dis;
+					//////////////////////////////////////////////////////
 				}
 			}
-			//ub += regularization * (Nd-countArete);
 
-			//inlierNum = Nd;
+			//////////////////////////////////////////////////////
+			//METHOD2: number of incompatibilities for translation by center of cube to upper and lower bounds
+			/*int incomp = countCompatibilities(false);
+            ub += regularization * ((Nd-comp)*(Nd-comp));
+            ub += regularization * ((incomp)*(incomp));
+            lb += regularization * ((notComp)*(notComp));
+            lb += regularization * ((incomp)*(incomp));
 
-			/*clock_t t; 
-   		 	t = clock(); */
+			int neighbors = compareNeighbors(false, transX, transY, transZ);
+			ub += regularizationNeighbors * (neighbors*neighbors);
+            lb += regularizationNeighbors * (neighbors*neighbors);*/
 
-			//////////////////// COMPATIBILITIES ////////////////////
-			/*float xIndex = nodeTrans.x;
-			float yIndex = nodeTrans.y;
-			float zIndex = nodeTrans.z;
-			int incompFirst = 0;
-			auto it = find_if(storedCompatibilities.begin(), storedCompatibilities.end(), [&xIndex, &yIndex, &zIndex](const TRANSCOMPATIBILITIES& obj) { if (obj.x == xIndex && obj.y == yIndex && obj.z == zIndex) return true; return false; });
-    		if(it != storedCompatibilities.end()) {
- 				incompFirst = it->c;
-			}
-			else {
-				TRANSCOMPATIBILITIES t;
-				t.x = xIndex;
-				t.y = yIndex;
-				t.z = zIndex;
-				t.c = checkCompatibilities(xIndex, yIndex, zIndex);
-    		    storedCompatibilities.push_back(t);
-				incompFirst = t.c;
-			}
-			int maxIncomp = incompFirst;
-			int minIncomp = incompFirst;
-			for(c = 1; c < 8; c++) {
-				//cout << c << endl;
-				xIndex = nodeTrans.x + (c&1)*nodeTrans.w;
-				yIndex = nodeTrans.y + (c>>1&1)*nodeTrans.w;
-				zIndex = nodeTrans.z + (c>>2&1)*nodeTrans.w;
-				int tempComp = 0;
-				//cout << corners[c].x << " " << corners[c].y << " " << corners[c].z << " " << xIndex << " " << yIndex << " " << zIndex << " -> " << storedCompatibilities[xIndex][yIndex][zIndex] << endl;
-				auto it2 = find_if(storedCompatibilities.begin(), storedCompatibilities.end(), [&xIndex, &yIndex, &zIndex](const TRANSCOMPATIBILITIES& obj) { if (obj.x == xIndex && obj.y == yIndex && obj.z == zIndex) return true; return false; });
-    			if(it2 != storedCompatibilities.end()) {
-					tempComp = it2->c;
-				}
-				else {
-					TRANSCOMPATIBILITIES t;
-					t.x = xIndex;
-					t.y = yIndex;
-					t.z = zIndex;
-					t.c = checkCompatibilities(xIndex, yIndex, zIndex);
-    			    storedCompatibilities.push_back(t);
-					tempComp = t.c;
-    			}
-				if(tempComp > maxIncomp) maxIncomp = tempComp;
-				if(tempComp < minIncomp) minIncomp = tempComp;		
-			}
-			ub += regularization * (maxIncomp*maxIncomp);
-			lb += regularization * (minIncomp*minIncomp);*/
-
-
-			/*t = clock() - t; 
-    		double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
-			cout << "time : " << time_taken << endl;*/
-
-			//int incomp = countCompatibilities(false);
-            //ub += regularization * ((Nd-comp)*(Nd-comp));
-            //ub += regularization * ((incomp)*(incomp));
-            //lb += regularization * ((notComp)*(notComp));
-            //lb += regularization * ((incomp)*(incomp));
-
-			//int neighbors = compareNeighbors(false, transX, transY, transZ);
-			//cout << "BNB : " << neighbors << endl;
-			//ub += regularizationNeighbors * (neighbors*neighbors);
-            //lb += regularizationNeighbors * (neighbors*neighbors);
-
-			int minNeighbors, maxNeighbors, minIncomp, maxIncomp;
-			//float minDens, maxDens;
-			float minFPFH, maxFPFH;
+			//METHOD3: highest number of incompatibilities to upper bound and lowest to lower bound according to 8 corners
+			//Same with direct neighbors, density and c-FPFH
+			int minNeighbors, maxNeighbors, minIncomp, maxIncomp = 0;
+			//float minDens, maxDens = 0;
+			float minFPFH, maxFPFH = 0;
+			//Check for the 8 corners of translation cube. Start with the first corner to have base values of max and min.
+			//At each corner, we check if the translation has already be made, if it's the case we take the stored results, else we compute and we store
 			if(regularization > 0 || regularizationNeighbors > 0 || ( regularizationFPFH > 0 && cfpfh != 0 ) ) {	
 				float xIndex = nodeTrans.x;
 				float yIndex = nodeTrans.y;
@@ -522,8 +457,7 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 
 					/*float densFirst = sumDensities(xIndex, yIndex, zIndex);
 					maxDens = densFirst;
-					minDens = densFirst;*/
-					
+					minDens = densFirst;*/			
 				}
 				if(regularizationNeighbors > 0) {
 					int neighborsFirst = compareNeighbors(false, xIndex, yIndex, zIndex);
@@ -549,7 +483,6 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 					minFPFH = FPFHFirst;
 				}
 				for(c = 1; c < 8; c++) {
-					//cout << c << endl;
 					xIndex = nodeTrans.x + (c&1)*nodeTrans.w;
 					yIndex = nodeTrans.y + (c>>1&1)*nodeTrans.w;
 					zIndex = nodeTrans.z + (c>>2&1)*nodeTrans.w;
@@ -596,16 +529,15 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 						
 						/*float tempDens = sumDensities(xIndex, yIndex, zIndex);
 						if(tempDens > maxDens) maxDens = tempDens;
-						if(tempDens < minDens) minDens = tempDens;*/
-						
+						if(tempDens < minDens) minDens = tempDens;*/			
 					}	
 				}
+				//Add the values with regularization to the bounds
 				if(regularization > 0) {
 					ub += regularization * (maxIncomp*maxIncomp);
 					lb += regularization * (minIncomp*minIncomp);
 					/*ub += regularization * (maxDens*maxDens);
 					lb += regularization * (minDens*minDens);*/
-					
 				}
 				if(regularizationNeighbors > 0) {
 					ub += regularizationNeighbors * (maxNeighbors*maxNeighbors);
@@ -615,14 +547,19 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 					ub += regularizationFPFH * (maxFPFH*maxFPFH);
 					lb += regularizationFPFH * (minFPFH*minFPFH);
 				}
-			}
-			//cout << ub << " " << lb << endl;
-			
+			}	
+			//////////////////////////////////////////////////////		
 
 			// If upper bound is better than best, update optErrorT and optTransOut (optimal translation node)
 			if(ub < optErrorT)
 			{          
-				//cout << "NEW : " << maxNeighbors << " - " << minNeighbors << endl;
+				//////////////////////////////////////////////////////
+				//Decomposition of error
+				incompErrorTemp = regularization * (maxIncomp*maxIncomp);
+				FPFHErrorTemp = regularizationFPFH * (maxFPFH*maxFPFH);
+				geomErrorTemp = abs(ub - incompErrorTemp - FPFHErrorTemp);
+				//////////////////////////////////////////////////////
+				
 				optErrorT = ub;
 				if(nodeTransOut)
 					*nodeTransOut = nodeTrans;
@@ -641,6 +578,7 @@ float GoICP::InnerBnB(float* maxRotDisL, TRANSNODE* nodeTransOut)
 	return optErrorT;
 }
 
+// Outer Branch-and-Bound, iterating over the rotation space
 float GoICP::OuterBnB()
 {
 	int i, j;
@@ -658,11 +596,15 @@ float GoICP::OuterBnB()
 	// Calculate Initial Error
 	optError = 0;
 
+	//////////////////////////////////////////////////////
+	//Add weights
     int x, y, z = 0;
 	for(i = 0; i < Nd; i++)
 	{
         minDis[i] = weights[i] * dt.Distance(pData[i].x, pData[i].y, pData[i].z, x, y, z);
 	}
+	//////////////////////////////////////////////////////
+	
 	if(doTrim)
 	{
 		// Sort by distance
@@ -671,14 +613,17 @@ float GoICP::OuterBnB()
 		intro_select(minDis,0,Nd-1,inlierNum-1);
 	}
 
+	//////////////////////////////////////////////////////
+	//Distinction according to norm, add to initial error the different parameters with their regularization
 	for(i = 0; i < inlierNum; i++)
 	{
 		if(norm == 2) optError += minDis[i] * minDis[i];
         if(norm == 1) optError += minDis[i];
     }
 	if(regularization > 0) optError += regularization * (Nd*Nd);
-	optError += regularizationFPFH * (100*8 * 100*8);
+	if(regularizationFPFH > 0) optError += regularizationFPFH * (100*8 * 100*8);
 	if(regularizationNeighbors > 0) optError += regularizationNeighbors * (Nd*6*Nd*6);
+	//////////////////////////////////////////////////////
 	cout << "Error*: " << optError << " (Init)" << endl;
 
 	Matrix R_icp = optR;
@@ -690,18 +635,29 @@ float GoICP::OuterBnB()
     icp3d.optPoints = icp3d.points;
 	if(error < optError)
 	{
-		lastICP = true;
 		optError = error;
+		//////////////////////////////////////////////////////
+		//ICP is the last operation to reduce error
+		lastICP = true;
+		geomError = geomErrorTemp;
+		incompError = incompErrorTemp;
+		FPFHError = FPFHErrorTemp;
+		//////////////////////////////////////////////////////
 		optR = R_icp;
 		optT = t_icp;
+		//////////////////////////////////////////////////////
+		//Count incompatibilities of initial ICP
 		optComp = countCompatibilities(false);
 		//maxComp = Nd-optComp;
-        cout << "Begin Compatibilities : " << Nd-optComp << endl;
+        cout << "Begin ICP Compatibilities: " << Nd-optComp << endl;
+		//////////////////////////////////////////////////////
 		cout << "Error*: " << error << " (ICP " << (double)(clock()-clockBeginICP)/CLOCKS_PER_SEC << "s)" << endl;
+		cout << "Geometrical error: " << geomError << " / Incompatibilities error: " << incompError << " / c-FPFH error: " << FPFHError << endl;
 		cout << "ICP-ONLY Rotation Matrix:" << endl;
 		cout << R_icp << endl;
 		cout << "ICP-ONLY Translation Vector:" << endl;
 		cout << t_icp << endl;
+		cout << endl;
 	}
 
 	// Push top-level rotation node into priority queue
@@ -713,9 +669,10 @@ float GoICP::OuterBnB()
 	{
 		if(queueRot.empty())
 		{
-		  cout << "Rotation Queue Empty" << endl;
-		  cout << "End Compatibilities : " << Nd-optComp << endl;
-		  cout << "Error*: " << optError << ", LB: " << lb << endl;
+		  	cout << "Rotation Queue Empty" << endl;
+		  	cout << "End Compatibilities: " << Nd-optComp << endl;
+		  	cout << "Error*: " << optError << ", LB: " << lb << endl;
+			cout << "Geometrical error: " << geomError << " / Incompatibilities error: " << incompError << " / c-FPFH error: " << FPFHError << endl;
 		  break;
 		}
 
@@ -724,17 +681,13 @@ float GoICP::OuterBnB()
 		// ...and remove it from the queue
 		queueRot.pop();
 
-        //cout << nodeRotParent.a << " " << nodeRotParent.b << " " << nodeRotParent.c << " " << nodeRotParent.l << " " << nodeRotParent.w << " " << nodeRotParent.lb << " " << nodeRotParent.ub << endl;
-
         // Exit if the optError is less than or equal to the lower bound plus a small epsilon
         if((optError-nodeRotParent.lb) <= SSEThresh)
 		{
             cout << "Threshold reached" << endl;
-            /*for(int i = 0; i < Nd; i++) {
-                cout << icp3d.points[i].id_data << "-" << icp3d.points[i].id_model << " ";
-            }*/
-            cout << "End Compatibilities : " << Nd-optComp << endl;
+            cout << "End Compatibilities: " << Nd-optComp << endl;
 			cout << "Error*: " << optError << ", LB: " << nodeRotParent.lb << ", epsilon: " << SSEThresh << endl;
+			cout << "Geometrical error: " << geomError << " / Incompatibilities error: " << incompError << " / c-FPFH error: " << FPFHError << endl;
 			break;
 		}
 
@@ -807,28 +760,21 @@ float GoICP::OuterBnB()
 			{
 				memcpy(pDataTemp, pData, sizeof(POINT3D)*Nd);
 			}
-			/*clock_t t; 
-   		 	t = clock();*/
+
 			// Upper Bound
 			// Run Inner Branch-and-Bound to find rotation upper bound
 			// Calculates the rotation upper bound by finding the translation upper bound for a given rotation,
 			// assuming that the rotation is known (zero rotation uncertainty radius)
 			ub = InnerBnB(NULL /*Rotation Uncertainty Radius*/, &nodeTrans);
-			/*if(oui) {
-				cout << "INCOMP Rotation Matrix:" << endl;
-            	cout << R11 << " " << R12 << " " << R13 << endl;
-				cout << R21 << " " << R22 << " " << R23 << endl;
-				cout << R31 << " " << R32 << " " << R33 << endl;
-				cout << "Error*: " << ub << " (INCOMP " << (double)(clock()-clockBegin)/CLOCKS_PER_SEC << "s)" << endl;
-				oui = false;
-			}*/
-			/*t = clock() - t; 
-    		double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
-			cout << "UB time : " << time_taken << endl;*/
+
             // If the upper bound is the best so far, run ICP
 			if(ub < optError)
 			{
+				//////////////////////////////////////////////////////
+				//BnB is the last operation to reduce error
 				lastICP = false;
+				//////////////////////////////////////////////////////
+
 				// Update optimal error and rotation/translation nodes
 				optError = ub;
 				optNodeRot = nodeRot;
@@ -841,10 +787,17 @@ float GoICP::OuterBnB()
 				optT.val[1][0] = optNodeTrans.y+optNodeTrans.w/2;
 				optT.val[2][0] = optNodeTrans.z+optNodeTrans.w/2;
 
+				//////////////////////////////////////////////////////
 				updateCompatibilities();
 
-                cout << "BNB Compatibilités : " << Nd-optComp << endl;
+				geomError = geomErrorTemp;
+				incompError = incompErrorTemp;
+				FPFHError = FPFHErrorTemp;
+				//////////////////////////////////////////////////////
+
+                cout << "BNB Compatibilities: " << Nd-optComp << endl;
                 cout << "Error*: " << optError << " (BNB " << (double)(clock()-clockBegin)/CLOCKS_PER_SEC << "s)" << endl;
+				cout << "Geometrical error: " << geomError << " / Incompatibilities error: " << incompError << " / c-FPFH error: " << FPFHError << endl;
                 cout << "BNB Rotation Matrix:" << endl;
                 cout << optR << endl;
                 cout << "BNB Translation Vector:" << endl;
@@ -859,23 +812,31 @@ float GoICP::OuterBnB()
 				//thus it's possible that ICP failed to decrease the DT error. This is no big deal as the difference should be very small.
 				if(error < optError)
 				{
+					//////////////////////////////////////////////////////
 					lastICP = true;
+					//////////////////////////////////////////////////////
+
 					optError = error;
 					optR = R_icp;
 					optT = t_icp;
+
+					//////////////////////////////////////////////////////
                     icp3d.optPoints = icp3d.points;
 					optComp = countCompatibilities(false);
-					/*if(Nd-optComp > maxComp) { 
-						maxComp = Nd-optComp;
-						cout << "ICP : " << maxComp << endl;;
-					}*/
 
-                    cout << "ICP Compatibilités : " << Nd-optComp << endl;
+					geomError = geomErrorTemp;
+					incompError = incompErrorTemp;
+					FPFHError = FPFHErrorTemp;
+					//////////////////////////////////////////////////////
+
+                    cout << "ICP Compatibilities: " << Nd-optComp << endl;
                     cout << "Error*: " << error << " (ICP " << (double)(clock() - clockBeginICP)/CLOCKS_PER_SEC << "s)" << endl;
+					cout << "Geometrical error: " << geomError << " / Incompatibilities error: " << incompError << " / c-FPFH error: " << FPFHError << endl;
                     cout << "ICP Rotation Matrix:" << endl;
                     cout << R_icp << endl;
                     cout << "ICP Translation Vector:" << endl;
                     cout << t_icp << endl;
+					cout << endl;
 				}
 
 				// Discard all rotation nodes with high lower bounds in the queue
@@ -897,13 +858,7 @@ float GoICP::OuterBnB()
 			// Calculates the rotation lower bound by finding the translation upper bound for a given rotation,
 			// assuming that the rotation is uncertain (a positive rotation uncertainty radius)
 			// Pass an array of rotation uncertainties for every point in data cloud at this level
-			/*clock_t t2; 
-   		 	t2 = clock();*/
 			lb = InnerBnB(maxRotDis[nodeRot.l], NULL /*Translation Node*/);
-			/*t2 = clock() - t2; 
-    		double time_taken2 = ((double)t2)/CLOCKS_PER_SEC; // in seconds 
-			cout << "LB time : " << time_taken2 << endl;*/
-            //cout << "-------------" << endl;
             // If the best error so far is less than the lower bound, remove the rotation subcube from the queue
 			if(lb >= optError)
 			{
@@ -930,7 +885,7 @@ float GoICP::Register()
 }
 
 /**
- * Count compatibilties from ICP
+ * Count incompatibilties from ICP
  */
 int GoICP::countCompatibilities(bool init) {
     int countComp = 0;
@@ -959,7 +914,7 @@ int GoICP::countCompatibilities(bool init) {
 }
 
 /**
- * Count compatibilties from BNB
+ * Count incompatibilties from BNB
  */
 int GoICP::checkCompatibilities(float x, float y, float z) {
 	int countNotComp = 0;
@@ -969,12 +924,11 @@ int GoICP::checkCompatibilities(float x, float y, float z) {
 			countNotComp++;
 		}
 	}
-	//cout << countNotComp << " - ";
 	return countNotComp;
 }
 
 /**
- * Update the number of compatibilities from BNB which reduces the error
+ * Update the number of incompatibilities from BNB which reduces the error
  */
 void GoICP::updateCompatibilities() {
     int countNotComp = 0;
@@ -989,7 +943,6 @@ void GoICP::updateCompatibilities() {
     }
 	//cout << endl;
 	optComp = countNotComp;
-    cout << "Compatibilités BNB : " << Nd-optComp << endl;
 }
 
 /**
@@ -999,18 +952,16 @@ void GoICP::assignCellColor() {
 	for(int i = 0; i < dt.SIZE; i++) {
 		for(int j = 0; j < dt.SIZE; j++) {
 			for(int k = 0; k < dt.SIZE; k++) {
+				//If DT cell contains at least one point, check property of the points in the cell
 				if(dt.cellPoints[k][j][i].c == -1) {
 					int prop = pModel[dt.cellPoints[k][j][i].points[0]].c;
 					dt.cellPoints[k][j][i].c = prop;
            	 		for(int p = 1; p < dt.cellPoints[k][j][i].points.size(); p++) {
-						//cout << dt.cellPoints[k][j][i].points[p] << " ";
                 		if(pModel[dt.cellPoints[k][j][i].points[p]].c != prop) {
                 			dt.cellPoints[k][j][i].c = -1;
 							break;
                 		}
-                		//cout << i << " : " << pModel[dt.cellPoints[i].points[0]].c << "-" << pModel[dt.cellPoints[i].points[1]].c << endl;
             		}
-				//cout << k << "-" << j << "-" << i << " : " << dt.cellPoints[k][j][i].c << endl;
 				}
 			}
 		}
@@ -1034,8 +985,6 @@ bool GoICP::checkCompatibility(int i, float x, float y, float z, bool update) {
     int cx = dt.emptyCells[rz][ry][rx].cx;
     int cy = dt.emptyCells[rz][ry][rx].cy;
     int cz = dt.emptyCells[rz][ry][rx].cz;
-	//cout << i << " : " << cz << "/" << cy << "/" << cx << " ";
-    //cout << " / " << pData[i].c << " -> " << it->c << endl;
     properties propertySource = (properties)pData[i].c;
     properties propertyTarget = (properties)dt.cellPoints[cz][cy][cx].c;
 	if(update) {
@@ -1092,10 +1041,6 @@ bool GoICP::checkCompatibility(int i, float x, float y, float z, bool update) {
 }
 
 void GoICP::closestEmptyCell(int x, int y, int z) {
-    /*auto it = find_if(dt.emptyCells.begin(), dt.emptyCells.end(), [&x, &y, &z](const CELL& obj) { if (obj.x == x && obj.y == y && obj.z == z) return true; return false; });
-    if(it != dt.emptyCells.end()) {
-        //cout << it->cz << "-" << it->cy << "-" << it->cx;
-    }*/
     cout << dt.emptyCells[z][y][x].cz << "-" << dt.emptyCells[z][y][x].cy << "-" << dt.emptyCells[z][y][x].cx;
 }
 
@@ -1103,29 +1048,18 @@ void GoICP::closestEmptyCell(int x, int y, int z) {
  * Sort distances of the matching points after a transformation
  */
 void GoICP::sortDistances() {
-	/*for(int i = 0; i < inlierNum; i++) {
-		cout << minDis[i] << " ";
-	}*/
 	sort(minDis, minDis + Nd);
 	//inlierNum = 0.75 * Nd;
-	/*cout << endl << endl;
-	for(int i = 0; i < inlierNum; i++) {
-		cout << minDis[i] << " ";
-	}
-	cout << endl << endl;*/
+
 	float threshold = minDis[(int)(inlierNum*0.9)];
-	//cout << "----->" << minDis[(int)(inlierNum*0.9)];
-	//cout << endl << endl;
+
 	for(int i = inlierNum-1; i >= 0; i--) {
 		if(minDis[i] == threshold) {
 			inlierNum = i+1;
 			break;
 		}
 	}
-	/*for(int i = 0; i < inlierNum; i++) {
-		cout << minDis[i] << " ";
-	}
-	cout << endl << endl;*/
+
 }
 
 /**
@@ -1191,7 +1125,6 @@ void GoICP::centralizePoints(vector<POINT3D> &points, double &xMean, double &yMe
     xMean = calculateMean(points, 'x');
     yMean = calculateMean(points, 'y');
     zMean = calculateMean(points, 'z');
-    //cout << xMean << " " << yMean << " " << zMean << endl;
     for (size_t i = 0; i < points.size(); i++)
     {
         points[i].x -= xMean;
@@ -1263,7 +1196,7 @@ double GoICP::computeScattering(double lambda1, double lambda3) {
     return lambda3/lambda1;
 }
 
-////////// Neighbors method //////////
+////////// Direct neighbors method //////////
 int GoICP::nearestNeighbor(float x, float y, float z, int cx, int cy, int cz) {
 	double minD = 100;
 	int ind = 0;
@@ -1282,7 +1215,6 @@ void GoICP::assignNeighbors() {
 	int ind = 0;
 	for (size_t i = 0; i < Nd; i++)
 	{
-		cout << i << " ---> ";
 		int count = 0;
 		for (size_t j = 0; j < Nd; j++)
         { 
@@ -1290,7 +1222,6 @@ void GoICP::assignNeighbors() {
                 continue;
             }
             if(isNeighbor(0.050, pData[i], pData[j])) {
-                cout << j << " - ";
                 count++;
             }
         }
@@ -1299,12 +1230,9 @@ void GoICP::assignNeighbors() {
 			ind = i;
 		}
 		pData[i].neighbors = count;
-		cout << " ---> " << pData[i].neighbors << endl;
 	}
-	cout << " ----> " << ind << " : " << maxN << endl;
 	for (size_t i = 0; i < Nm; i++)
 	{
-		//cout << i << " ---> ";
 		int count = 0;
 		for (size_t j = 0; j < Nm; j++)
         { 
@@ -1312,12 +1240,10 @@ void GoICP::assignNeighbors() {
                 continue;
             }
             if(isNeighbor(0.050, pModel[i], pModel[j])) {
-                //cout << j << " - ";
                 count++;
             }
         }
 		pModel[i].neighbors = count;
-		//cout << " ---> " << pModel[i].neighbors << endl;
 	}
 }
 
@@ -1330,7 +1256,6 @@ int GoICP::compareNeighbors(bool icp, float x, float y, float z) {
 			int neighborsTarget = pModel[icp3d.points[i].id_model].neighbors;
 			int diff = abs(neighborsSource - neighborsTarget);
 			sum += diff;
-			//cout << icp3d.points[i].id_data << " - " << icp3d.points[i].id_model << " ---> " << diff << endl;
 		}
 	}
 	else {
@@ -1356,7 +1281,6 @@ int GoICP::compareNeighbors(bool icp, float x, float y, float z) {
 			int neighborsTarget = pModel[nearestNeighbor(ax, ay, az, cx, cy, cz)].neighbors;
 			int diff = abs(neighborsSource - neighborsTarget);
 			sum += diff;
-			//cout << i << " - " << compBNB[i] << " ---> " << diff << endl;
 		}
 	}
 
@@ -1372,7 +1296,6 @@ int GoICP::compareNeighborsV2(bool icp, float x, float y, float z) {
 			int neighborsTarget = pModel[icp3d.points[i].id_model].neighbors;
 			int diff = abs(neighborsSource - neighborsTarget);
 			if(diff > 3) sum += diff;
-			//cout << icp3d.points[i].id_data << " - " << icp3d.points[i].id_model << " ---> " << diff << endl;
 		}
 	}
 	else {
@@ -1398,7 +1321,6 @@ int GoICP::compareNeighborsV2(bool icp, float x, float y, float z) {
 			int neighborsTarget = pModel[nearestNeighbor(ax, ay, az, cx, cy, cz)].neighbors;
 			int diff = abs(neighborsSource - neighborsTarget);
 			if(diff > 3) sum += diff;
-			//cout << i << " - " << compBNB[i] << " ---> " << diff << endl;
 		}
 	}
 
@@ -1433,7 +1355,6 @@ int GoICP::compareNeighborsV3(bool icp, float x, float y, float z) {
 					sum += 1;
 				}
 			}
-			//cout << icp3d.points[i].id_data << " - " << icp3d.points[i].id_model << " ---> " << diff << endl;
 		}
 	}
 	else {
@@ -1478,7 +1399,6 @@ int GoICP::compareNeighborsV3(bool icp, float x, float y, float z) {
 					sum += 1;
 				}
 			}
-			//cout << i << " - " << compBNB[i] << " ---> " << diff << endl;
 		}
 	}
 
@@ -1496,7 +1416,6 @@ void GoICP::assignNeighborsPrio() {
 	while(maxN < 19) {
 		for (size_t i = 0; i < Nd; i++)
 		{
-			//cout << i << " ---> ";
 			int count = 0;
 			for (size_t j = 0; j < Nd; j++)
     	    { 
@@ -1504,7 +1423,6 @@ void GoICP::assignNeighborsPrio() {
     	            continue;
     	        }
     	        if(isNeighbor(distance, pData[i], pData[j])) {
-    	            //cout << j << " - ";
     	            count++;
     	        }
     	    }
@@ -1513,23 +1431,12 @@ void GoICP::assignNeighborsPrio() {
 				//ind = i;
 			}
 			pData[i].neighbors = count;
-			//cout << " ---> " << pData[i].neighbors << endl;
 		}
-		//cout << " ----> " << ind << " : " << maxN << endl;
 		distance = distance + 0.001;
 	}
-	/*cout << distance << endl;
-	for (size_t i = 0; i < Nd; i++)
-	{
-		cout << pData[i].neighbors << " ";
-	}
-	cout << endl;*/
+
 	sort(pData, pData + Nd, [](const POINT3D &a, const POINT3D &b){return a.neighbors > b.neighbors;});
-	/*for (size_t i = 0; i < Nd; i++)
-	{
-		cout << pData[i].neighbors << " ";
-	}
-	cout << endl;*/
+
 	float threshold = pData[(int)(Nd*0.75)].neighbors;
 	for(int i = Nd-1; i >= 0; i--) {
 		if(pData[i].neighbors >= threshold) {
@@ -1545,13 +1452,13 @@ void GoICP::assignNeighborsPrio() {
  */
 void GoICP::neighborsWeights() {
 	int maxN = 0;
-	//int maxN2 = 0;
 	int minN = 100;
+	//Arbitrary distance determined for minimum 3 nearest neighbors radius
 	float distance = 0.035;
+	//While points have least of 19 points, that means we are at less of 3 nearest neighbors radius
 	while(maxN < 19) {
 		for (size_t i = 0; i < Nd; i++)
 		{
-			//cout << i << " ---> ";
 			int count = 0;
 			//int countProperty = 0;
 			for (size_t j = 0; j < Nd; j++)
@@ -1560,7 +1467,6 @@ void GoICP::neighborsWeights() {
     	            continue;
     	        }
     	        if(isNeighbor(distance, pData[i], pData[j])) {
-    	            //cout << j << " - ";
     	            count++;
 					/*if(pData[i].c == pData[j].c) {
 						countProperty += 2;
@@ -1578,7 +1484,6 @@ void GoICP::neighborsWeights() {
 			if(count < minN) {
 				minN = count;
 			}
-			//cout << " ---> " << pData[i].neighbors << endl;
 		}
 		distance = distance + 0.001;
 	}
@@ -1589,11 +1494,12 @@ void GoICP::neighborsWeights() {
 		//float f = (1 - ( (float)pData[i].neighbors / (float)maxN ) ) * 2;
 		float f = ((float)minN / (float)pData[i].neighbors) * 2;
 		weights[i] += f; 
-		//cout << i << " : " << pData[i].neighbors << " / ";
 	}
-	//cout << endl;
 }
 
+/**
+ * Computes source and target points weights and property density according to their number of neighbours
+ */
 void GoICP::neighborsDensity() {
 	int maxN = 0;
 	int minN = 100;
@@ -1601,7 +1507,6 @@ void GoICP::neighborsDensity() {
 	while(maxN < 19) {
 		for (size_t i = 0; i < Nd; i++)
 		{
-			//cout << i << " ---> ";
 			int count = 0;
 			int countProperty = 0;
 			for (size_t j = 0; j < Nd; j++)
@@ -1610,7 +1515,6 @@ void GoICP::neighborsDensity() {
     	            continue;
     	        }
     	        if(isNeighbor(distance, pData[i], pData[j])) {
-    	            //cout << j << " - ";
     	            count++;
 					if(pData[i].c == pData[j].c) {
 						countProperty++;
@@ -1625,7 +1529,6 @@ void GoICP::neighborsDensity() {
 			if(count < minN) {
 				minN = count;
 			}
-			//cout << " ---> " << pData[i].neighbors << endl;
 		}
 		distance = distance + 0.001;
 	}
@@ -1636,14 +1539,12 @@ void GoICP::neighborsDensity() {
 		//float f = (1 - ( (float)pData[i].neighbors / (float)maxN ) ) * 2;
 		float f = ((float)minN / (float)pData[i].neighbors) * 2;
 		weights[i] += f; 
-		//cout << i << " : " << pData[i].neighbors << " / ";
 	}
 	maxN = 0;
 	distance = 0.035;
 	while(maxN < 19) {
 		for (size_t i = 0; i < Nm; i++)
 		{
-			//cout << i << " ---> ";
 			int count = 0;
 			int countProperty = 0;
 			for (size_t j = 0; j < Nm; j++)
@@ -1652,7 +1553,6 @@ void GoICP::neighborsDensity() {
     	            continue;
     	        }
     	        if(isNeighbor(distance, pModel[i], pModel[j])) {
-    	            //cout << j << " - ";
     	            count++;
 					if(pModel[i].c == pModel[j].c) {
 						countProperty++;
@@ -1664,29 +1564,21 @@ void GoICP::neighborsDensity() {
 			if(count > maxN) {
 				maxN = count;
 			}
-			//cout << " ---> " << pData[i].neighbors << endl;
 		}
 		distance = distance + 0.001;
 	}
-
-	/*for (size_t i = 0; i < Nd; i++)
-	{
-		cout << i << " : " << pData[i].neighbors << "-" << pData[i].density << " / ";
-	}
-	cout << endl;
-	for (size_t i = 0; i < Nm; i++)
-	{
-		cout << i << " : " << pModel[i].neighbors << "-" << pModel[i].density << " / ";
-	}
-	cout << endl;*/
 }
 
+/**
+ * Computes density difference
+ */
 float GoICP::computeDensityDifference(bool icp, int point, float x, float y, float z) {
 	float d = 0;
-	
+	//If icp: compute difference between 2 corresponding points
 	if(icp) {
 		d =  ((abs(pData[icp3d.points[point].id_data].density - pModel[icp3d.points[point].id_model].density)) );
 	}
+	//If bnb: apply transformation on point to check closest occupied DT cell and compute smallest difference with points in the cell 
 	else {
 		int rx = ROUND((x - dt.xMin) * dt.scale);
     	int ry = ROUND((y - dt.yMin) * dt.scale);
@@ -1701,20 +1593,20 @@ float GoICP::computeDensityDifference(bool icp, int point, float x, float y, flo
     	int cy = dt.emptyCells[rz][ry][rx].cy;
     	int cz = dt.emptyCells[rz][ry][rx].cz;
 		float minD = 100;
-		//cout << point << " - " << cz << "/" << cy << "/" << cx << endl;
 		for(int p : dt.cellPoints[cz][cy][cx].points) {
-			//cout << p << ":" << pModel[p].density << " / ";
             if(  ((abs(pData[point].density - pModel[p].density) ) ) < minD) {
 				minD =   ((abs(pData[point].density - pModel[p].density) ) );
 			}
         }
-		//cout << endl;
 		d = minD;
 	}
 
 	return d;
 }
 
+/**
+ * Computes sum of density differences for BnB
+ */
 float GoICP::sumDensities(float x, float y, float z) {
 	float sum = 0;
 	for (int i = 0; i < Nd; i++)
@@ -1724,10 +1616,12 @@ float GoICP::sumDensities(float x, float y, float z) {
 	return sum;
 }
 
-
+/**
+ * Computes c-FPFH difference
+ */
 float GoICP::computeFPFHDifference(bool icp, int point, float x, float y, float z) {
 	float d = 0;
-	
+	//if icp: compute difference between 2 corresponding points
 	if(icp) {
 		if(cfpfh == 1) {
 			for(int i = 0; i < 41; i++) {
@@ -1745,6 +1639,7 @@ float GoICP::computeFPFHDifference(bool icp, int point, float x, float y, float 
 			}	
 		}
 	}
+	//if BnB: apply transformation on point to check closest occupied DT cell and compute smallest difference with points in the cell 
 	else {
 		int rx = ROUND((x - dt.xMin) * dt.scale);
     	int ry = ROUND((y - dt.yMin) * dt.scale);
@@ -1759,9 +1654,7 @@ float GoICP::computeFPFHDifference(bool icp, int point, float x, float y, float 
     	int cy = dt.emptyCells[rz][ry][rx].cy;
     	int cz = dt.emptyCells[rz][ry][rx].cz;
 		float minD = 1000000000;
-		//cout << point << " - " << cz << "/" << cy << "/" << cx << endl;
 		for(int p : dt.cellPoints[cz][cy][cx].points) {
-			//cout << p << ":" << pModel[p].density << " / ";
 			float diff = 0;
 
 			if(cfpfh == 1) {
@@ -1784,13 +1677,15 @@ float GoICP::computeFPFHDifference(bool icp, int point, float x, float y, float 
 				minD = diff;
 			}
         }
-		//cout << endl;
 		d = minD;
 	}
 
 	return d;
 }
 
+/**
+ * Computes sum of c-FPFH differences for BnB
+ */
 float GoICP::sumFPFH(float x, float y, float z) {
 	float sum = 0;
 	for (int i = 0; i < Nd; i++)

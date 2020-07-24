@@ -8,6 +8,12 @@ Alexander Vasilevskiy.
 Jiaolong Yang <yangjiaolong@gmail.com>
 ****************************************************************/
 
+/********************************************************************
+Guillaume modifications:
+- Assign the closest cell containing at least 1 target point for each cell
+*********************************************************************/
+
+
 #include <math.h>
 #include <stdio.h>
 #include <malloc.h>
@@ -929,6 +935,8 @@ void DT3D::Build(double* _x, double* _y, double* _z, int num)
 		A.Init(SIZE, SIZE, SIZE);
 	}
 
+  //////////////////////////////////////////////////////
+  //Initialization of cells
   emptyCells = new EMPTYCELL**[SIZE];
   cellPoints = new CELL**[SIZE];
   for (int i = 0; i < SIZE; ++i) {
@@ -942,6 +950,7 @@ void DT3D::Build(double* _x, double* _y, double* _z, int num)
       }
     }
   }
+  //////////////////////////////////////////////////////
 
 	int x,y,z;
 
@@ -970,9 +979,11 @@ void DT3D::Build(double* _x, double* _y, double* _z, int num)
 		y = ROUND((_y[i]-yMin)*scale);
 		z = ROUND((_z[i]-zMin)*scale);
 
+    //////////////////////////////////////////////////////
+    //If a cell contains at least one point, we give it the base color -1 and we add the point
     cellPoints[z][y][x].c = -1;
     cellPoints[z][y][x].points.push_back(i);
-    //printf("%d %d %d : %d \n", z, y, x, i);
+    //////////////////////////////////////////////////////
 
 		if(x<0 || x>=Xdim || y<0 || y>=Ydim || z<0 || z>=Zdim)
 			continue;
@@ -996,10 +1007,13 @@ void DT3D::Build(double* _x, double* _y, double* _z, int num)
         int xD = inDE[z][y][x].v;
         int yD = inDE[z][y][x].h;
         int zD = inDE[z][y][x].d;
+
+        //////////////////////////////////////////////////////
         EMPTYCELL c;
         c.cx = x;
         c.cy = y;
         c.cz = z;
+        //Search the closest cell containing at least 1 target point
         if(inDE[z][y][x].distance != 0) {
           if(xD == 0) {
               if(yD == 0) {
@@ -1116,6 +1130,7 @@ void DT3D::Build(double* _x, double* _y, double* _z, int num)
         }
         //printf("%d %d %d : %d %d %d \n", z, y, x, c.cz, c.cy, c.cx);
         emptyCells[z][y][x] = c;
+        //////////////////////////////////////////////////////
 			}
 		}
   }
@@ -1128,16 +1143,15 @@ float DT3D::Distance(double _x, double _y, double _z, int &cx, int &cy, int &cz)
 	y = ROUND((_y-yMin)*scale);
 	z = ROUND((_z-zMin)*scale);
 
-    /*if(cx==1) {
-        printf("%f %f %f -> %d %d %d %d %d %d %f \n ", _x, _y, _z, z, y, x, A.data[z][y][x].d, A.data[z][y][x].h, A.data[z][y][x].v, A.data[z][y][x].distance);
-    }*/
-    cx = x;
-    cy = y;
-    cz = z;
+  //////////////////////////////////////////////////////
+  cx = x;
+  cy = y;
+  cz = z;
+  //////////////////////////////////////////////////////
 
-    if(x > -1 && x < SIZE && y > -1 && y < SIZE && z > -1 && z < SIZE) {
-        return A.data[z][y][x].distance;
-    }
+  if(x > -1 && x < SIZE && y > -1 && y < SIZE && z > -1 && z < SIZE) {
+    return A.data[z][y][x].distance;
+  }
 
     float a = 0, b = 0, c = 0;
 	if(x < 0)

@@ -9,4 +9,5 @@ add_executable(GoICP
 	matrix.cpp
 	ConfigMap.cpp
 	StringTokenizer.cpp
+	Transformation.cpp
 	)

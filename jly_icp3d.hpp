@@ -22,6 +22,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *********************************************************************/
 
+/********************************************************************
+Guillaume modifications:
+- Add of variable optPoints to make the distinction between the ICP correspondences obtained by ICP and the correspondences obtained by an ICP which actually decreased the error
+*********************************************************************/
+
+
 #ifndef JLY_ICP3D_HPP
 #define JLY_ICP3D_HPP
 
@@ -91,8 +97,9 @@ public:
     bool do_trim;
     struct POINTREF * points;
 
+	//////////////////////////////////////////////////////
     struct POINTREF * optPoints;
-
+	//////////////////////////////////////////////////////
 
 	void Build(T * model, size_t n);
 	T Run(T * data, size_t n, Matrix & R, Matrix & t);
@@ -149,7 +156,9 @@ void ICP3D<T>::Build(T * model, size_t n)
 		model_.pts[i].z = model[idx+2];
 	}
 
+	//////////////////////////////////////////////////////
     optPoints = (struct POINTREF *)malloc(sizeof(struct POINTREF)*n);
+	//////////////////////////////////////////////////////
 
 	kdtree = new KDTreeSingleIndexAdaptor<
 		L2_Simple_Adaptor<T, PointCloud<T> > ,

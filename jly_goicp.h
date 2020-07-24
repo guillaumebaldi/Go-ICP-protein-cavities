@@ -22,6 +22,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *********************************************************************/
 
+/********************************************************************
+Guillaume modifications:
+- Add of property, neighbors number, density and c-FPFH to POINT3D structure
+- Structures TRANSCOMPATIBILITIES and TRANSFPFH to keep in memory already tested translation for incompatibilities number and FPFH difference
+- Fonctions and variables on parameters
+*********************************************************************/
+
 #ifndef JLY_GOICP_H
 #define JLY_GOICP_H
 
@@ -31,6 +38,7 @@ using namespace std;
 #include "jly_icp3d.hpp"
 #include "jly_3ddt.h"
 #include <map>
+#include "transformation.hpp"
 //#include <eigen3/Eigen/Eigenvalues>
 
 #define PI 3.1415926536
@@ -39,10 +47,12 @@ using namespace std;
 typedef struct _POINT3D
 {
     float x, y, z;
+	//////////////////////////////////////////////////////
     int c;
 	int neighbors;
 	float density;
 	vector<float> cfpfh;
+	//////////////////////////////////////////////////////
 }POINT3D;
 
 typedef struct _ROTNODE
@@ -82,9 +92,9 @@ typedef struct _TRANSNODE
 /********************************************************/
 
 #define MAXROTLEVEL 20
-enum properties {OG = 8204959, N = 30894, O = 15219528, NZ = 15231913, CZ = 4646984, CA = 16741671, DU = 7566712, OD1 = 0 };
 #define ROUND(x) (int((x)+0.5))
 
+//////////////////////////////////////////////////////
 struct TRANSCOMPATIBILITIES
 {
     float x, y ,z;
@@ -96,6 +106,7 @@ struct TRANSFPFH
     float x, y ,z;
 	float fpfh;
 };
+//////////////////////////////////////////////////////
 
 class GoICP
 {
@@ -129,6 +140,7 @@ public:
 	int inlierNum;
 	bool doTrim;
 
+	//////////////////////////////////////////////////////
 	float regularization;
 	float regularizationNeighbors;
 	float regularizationFPFH;
@@ -137,6 +149,7 @@ public:
 	int ponderation;
 	int cfpfh;
 	//int * compBNB;
+	//////////////////////////////////////////////////////
 
 private:
 	//temp variables
@@ -156,6 +169,8 @@ private:
 	void Initialize();
 	void Clear();
 
+	//////////////////////////////////////////////////////
+	//Fonctions on physico-chemical properties incompatibilities
     int countCompatibilities(bool init);
 	int checkCompatibilities(float x, float y, float z);
     void updateCompatibilities();
@@ -166,6 +181,7 @@ private:
 	void sortDistances(); 
 	bool checkProperty(properties source, properties target, int cx, int cy, int cz, double x, double y, double z);
 
+	//Fonctions on direct neighbors
 	bool isNeighbor(float radius, POINT3D p, POINT3D p2);
 	double calculateMean(vector<POINT3D> points, char d);
 	void centralizePoints(vector<POINT3D> &points, double &xMean, double &yMean, double &zMean);
@@ -173,28 +189,31 @@ private:
 	void calculateEigen(double matrix[9], vector<double> &eigenvalues);
 	double computePlanarity(double lambda1, double lambda2, double lambda3);
 	double computeScattering(double lambda1, double lambda3);
-
 	int nearestNeighbor(float x, float y, float z, int cx, int cy, int cz);
 	void assignNeighbors();
 	int compareNeighbors(bool icp, float x, float y, float z);
 	int compareNeighborsV2(bool icp, float x, float y, float z);
 	int compareNeighborsV3(bool icp, float x, float y, float z);
 
+	//Fonctions on neighbors ponderation and density
 	void assignNeighborsPrio();
 	void neighborsWeights();
 	void neighborsDensity();
 	float computeDensityDifference(bool icp, int point, float x, float y, float z);
 	float sumDensities(float x, float y, float z);
 
+	//Fonctions on c-FPFH
 	float computeFPFHDifference(bool icp, int point, float x, float y, float z);
 	float sumFPFH(float x, float y, float z);
 
 	float * weights;
-
 	//false : BNB is the last operation which decreased the error; true : ICP is the last operation which decreased the error
 	bool lastICP = false;
-	
 	int maxComp;
+	//Error decomposition
+	float geomError, incompError, FPFHError = 0;
+	float geomErrorTemp, incompErrorTemp, FPFHErrorTemp = 0;
+	//////////////////////////////////////////////////////
 };
 
 

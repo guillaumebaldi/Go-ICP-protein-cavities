@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /mnt/d/folders/Downloads/Go-ICP-master
+CMAKE_SOURCE_DIR = /mnt/d/folders/Downloads/Go-ICP
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /mnt/d/folders/Downloads/Go-ICP-master
+CMAKE_BINARY_DIR = /mnt/d/folders/Downloads/Go-ICP
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,9 +80,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/folders/Downloads/Go-ICP-master/CMakeFiles /mnt/d/folders/Downloads/Go-ICP-master/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/folders/Downloads/Go-ICP/CMakeFiles /mnt/d/folders/Downloads/Go-ICP/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/folders/Downloads/Go-ICP-master/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/folders/Downloads/Go-ICP/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -176,6 +176,33 @@ StringTokenizer.s: StringTokenizer.cpp.s
 StringTokenizer.cpp.s:
 	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/StringTokenizer.cpp.s
 .PHONY : StringTokenizer.cpp.s
+
+Transformation.o: Transformation.cpp.o
+
+.PHONY : Transformation.o
+
+# target to build an object file
+Transformation.cpp.o:
+	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/Transformation.cpp.o
+.PHONY : Transformation.cpp.o
+
+Transformation.i: Transformation.cpp.i
+
+.PHONY : Transformation.i
+
+# target to preprocess a source file
+Transformation.cpp.i:
+	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/Transformation.cpp.i
+.PHONY : Transformation.cpp.i
+
+Transformation.s: Transformation.cpp.s
+
+.PHONY : Transformation.s
+
+# target to generate assembly for a file
+Transformation.cpp.s:
+	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/Transformation.cpp.s
+.PHONY : Transformation.cpp.s
 
 jly_3ddt.o: jly_3ddt.cpp.o
 
@@ -300,6 +327,9 @@ help:
 	@echo "... StringTokenizer.o"
 	@echo "... StringTokenizer.i"
 	@echo "... StringTokenizer.s"
+	@echo "... Transformation.o"
+	@echo "... Transformation.i"
+	@echo "... Transformation.s"
 	@echo "... jly_3ddt.o"
 	@echo "... jly_3ddt.i"
 	@echo "... jly_3ddt.s"

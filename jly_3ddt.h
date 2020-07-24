@@ -8,6 +8,13 @@ Alexander Vasilevskiy.
 Jiaolong Yang <yangjiaolong@gmail.com>
 ****************************************************************/
 
+/********************************************************************
+Guillaume modifications:
+- Structure CELL for cells containing target points
+- Structure EMPTYCELL for cells with no target points
+*********************************************************************/
+
+
 #ifndef JLY_3DDT_H
 #define JLY_3DDT_H
 
@@ -101,8 +108,7 @@ void Array3d<T>::printArrayDE(int x)
 typedef Array3d<DEucl3D> Array3dDEucl3D;
 typedef Array3d<float> Array3dfloat;
 
-#include <vector>
-#include <algorithm>
+//////////////////////////////////////////////////////
 struct CELL
 {
     int c;
@@ -112,19 +118,22 @@ struct CELL
 struct EMPTYCELL {
     int cx, cy, cz;
 };
+//////////////////////////////////////////////////////
 
 class DT3D{
 public:
 	DT3D();
-    int SIZE;
+  int SIZE;
 	double scale;
 	double expandFactor;
 	double xMin, xMax, yMin, yMax, zMin, zMax;
 	void Build(double* x, double* y, double* z, int num);
-    float Distance(double x, double y, double z, int &cx, int &cy, int &cz);
+  float Distance(double x, double y, double z, int &cx, int &cy, int &cz);
 
-    CELL *** cellPoints;
-    EMPTYCELL *** emptyCells;
+  //////////////////////////////////////////////////////
+  CELL *** cellPoints;
+  EMPTYCELL *** emptyCells;
+  //////////////////////////////////////////////////////
 private:
 	Array3dDEucl3D A;
 };

@@ -22,6 +22,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *********************************************************************/
 
+/********************************************************************
+Guillaume modifications:
+- Get the cavities point clouds and normalize/centralize them 
+- New config parameters
+- Read c-FPFH files
+- RMSD computation
+*********************************************************************/
+
 #include <time.h>
 #include <iostream>
 #include <fstream>
@@ -30,29 +38,64 @@ using namespace std;
 #include "jly_goicp.h"
 #include "ConfigMap.hpp"
 
+#include "transformation.hpp"
+
 #define DEFAULT_OUTPUT_FNAME "output.txt"
 #define DEFAULT_CONFIG_FNAME "config.txt"
 #define DEFAULT_MODEL_FNAME "model.txt"
 #define DEFAULT_DATA_FNAME "data.txt"
 
-void parseInput(int argc, char **argv, string & modelFName, string & dataFName, int & NdDownsampled, string & configFName, string & outputFName);
+void parseInput(int argc, char **argv, string & modelFName, string & dataFName, int & NdDownsampled, string & configFName, string & outputFName, int & pair);
 void readConfig(string FName, GoICP & goicp);
 int loadPointCloud(string FName, int & N, POINT3D **  p);
 
 int main(int argc, char** argv)
 {
 	int Nm, Nd, NdDownsampled;
+	int pair = 1;
 	clock_t  clockBegin, clockEnd;
 	string modelFName, dataFName, configFName, outputFname;
 	POINT3D * pModel, * pData;
 	GoICP goicp;
 
-	parseInput(argc, argv, modelFName, dataFName, NdDownsampled, configFName, outputFname);
+	parseInput(argc, argv, modelFName, dataFName, NdDownsampled, configFName, outputFname, pair);
 	readConfig(configFName, goicp);
 
+	//////////////////////////////////////////////////////
+
+	string proteinData = dataFName.substr(dataFName.find("/")+1, 14);
+	string proteinModel = modelFName.substr(modelFName.find("/")+1, 14);
+	Transformation t;
+	//Source and target point clouds
+    ifstream fileSource (dataFName);
+    vector<point4D> cloudSource = t.readMolFile(fileSource);
+
+    ifstream fileTarget (modelFName);
+    vector<point4D> cloudTarget = t.readMolFile(fileTarget);
+	//Normalization and centralization
+    double xMean, yMean, zMean = 0;
+    double xMeanTemp, yMeanTemp, zMeanTemp = 0;
+    double xTrans, yTrans, zTrans = 0;
+    double timeGO, error = 0;
+    double rot[3][3] = {};
+    double tra[3][1] = {};
+    double scaleSource = t.normalizeMolCloud(cloudSource, xMean, yMean, zMean);
+    double scaleTarget = t.normalizeMolCloud(cloudTarget, xMeanTemp, yMeanTemp, zMeanTemp);
+    double scale = scaleSource >= scaleTarget ? scaleSource : scaleTarget;
+    t.scaleCloud(cloudSource, scale);
+    t.scaleCloud(cloudTarget, scale);
+	string sourceFileName = "cavitiesN/" + proteinData + "_sim" + to_string(pair) + "N.xyz";
+	string targetFileName = "cavitiesN/" + proteinModel + "_sim" + to_string(pair) + "N.xyz";
+    ofstream newFileSource(sourceFileName);
+    ofstream newFileTarget(targetFileName);
+    t.writeNormalizedMolCloudFile(newFileSource, cloudSource);
+    t.writeNormalizedMolCloudFile(newFileTarget, cloudTarget);
+
+	//////////////////////////////////////////////////////
+
 	// Load model and data point clouds
-	loadPointCloud(modelFName, Nm, &pModel);
-	loadPointCloud(dataFName, Nd, &pData);
+	loadPointCloud(targetFileName, Nm, &pModel);
+	loadPointCloud(sourceFileName, Nd, &pData);
 	
 	goicp.pModel = pModel;
 	goicp.Nm = Nm;
@@ -82,6 +125,7 @@ int main(int argc, char** argv)
 	cout << "Optimal Translation Vector:" << endl;
 	cout << goicp.optT << endl;
 	cout << "Finished in " << time << endl;
+	cout << endl;
 
 	ofstream ofile;
 	ofile.open(outputFname.c_str(), ofstream::out);
@@ -89,11 +133,33 @@ int main(int argc, char** argv)
     ofile << "Rotation Matrix: " << endl << goicp.optR << endl;
     ofile << "Translation Vector: " << endl << goicp.optT << endl;
     ofile << "Error: " << goicp.optError << endl;
+	//////////////////////////////////////////////////////
+	//Add compatibilities to output file
 	ofile << "Compatibilities: " << goicp.Nd-goicp.optComp << endl;
-    for(int i = 0; i < goicp.Nd; i++) {
-        ofile << goicp.icp3d.optPoints[i].id_data << "-" << goicp.icp3d.optPoints[i].id_model << " ";
-    }
+	//////////////////////////////////////////////////////
 	ofile.close();
+
+	//////////////////////////////////////////////////////
+	//Application of transformation on cavity and rescaling
+	ofstream appliedFile("cavitiesA/" + proteinData + "_sim" + to_string(pair) + "A.mol2");
+    t.writeAppliedMolFile(appliedFile, "output/similar" + to_string(pair) + ".txt", cloudSource.size(), cloudSource, rot, tra, xTrans, yTrans, zTrans, time, error);
+    ofstream rescaledFile("cavitiesR/similar" + to_string(pair) + ".txt");
+    t.rescaleCloud(rescaledFile, cloudSource, scale, xMeanTemp, yMeanTemp, zMeanTemp, time, error, xMean, yMean, zMean, rot, xTrans, yTrans, zTrans);
+	
+	//Application of transformation on protein and RMSD computation
+	string protein = proteinData.substr(0, 6) + "_protein.mol2";
+	ifstream proteinFile("chains/" + protein);
+	ofstream transformedProteinFile("rot/rot_" + protein);
+	t.applyTransformationProtein(transformedProteinFile, "chains/" + protein, pair);
+	ifstream alignedFile("ref_proteins/" + proteinData.substr(0, 6) + "." + proteinModel.substr(0, 6) + "/aligned_" + protein);
+	ifstream rotFile("rot/rot_" + protein);
+	float rmsd = t.computeRMSD(alignedFile, rotFile);
+	ofstream RMSDFile("resultsRMSD.txt", std::ios::app);
+	if(RMSDFile.is_open()) {
+		RMSDFile << pair << "\t" << proteinData.substr(0, 6) << "\t" << proteinModel.substr(0, 6) << "\t" << to_string(rmsd) << endl;
+	}
+	cout << "---> RMSD: " << rmsd << endl;
+	//////////////////////////////////////////////////////
 
 	delete(pModel);
 	delete(pData);
@@ -101,7 +167,7 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-void parseInput(int argc, char **argv, string & modelFName, string & dataFName, int & NdDownsampled, string & configFName, string & outputFName)
+void parseInput(int argc, char **argv, string & modelFName, string & dataFName, int & NdDownsampled, string & configFName, string & outputFName, int & pair)
 {
 	// Set default values
 	modelFName = DEFAULT_MODEL_FNAME;
@@ -113,8 +179,14 @@ void parseInput(int argc, char **argv, string & modelFName, string & dataFName, 
 	//cout << endl;
 	//cout << "USAGE:" << "./GOICP <MODEL FILENAME> <DATA FILENAME> <NUM DOWNSAMPLED DATA POINTS> <CONFIG FILENAME> <OUTPUT FILENAME>" << endl;
 	//cout << endl;
-
-	if(argc > 5)
+	//////////////////////////////////////////////////////
+	//New program argument with the pair number
+	if(argc > 6) 
+	{
+		pair = atoi(argv[6]);
+	}
+	//////////////////////////////////////////////////////
+ 	if(argc > 5)
 	{
 		outputFName = argv[5];
 	}
@@ -141,6 +213,7 @@ void parseInput(int argc, char **argv, string & modelFName, string & dataFName, 
 	cout << "(NdDownsampled)->(" << NdDownsampled << ")" << endl;
 	cout << "(configFName)->(" << configFName << ")" << endl;
 	cout << "(outputFName)->(" << outputFName << ")" << endl;
+	cout << "(pair)->(" << pair << ")" << endl;
 	cout << endl;
 }
 
@@ -160,12 +233,15 @@ void readConfig(string FName, GoICP & goicp)
 	goicp.initNodeTrans.w = config.getF("transWidth");
 	goicp.trimFraction = config.getF("trimFraction");
 
+	//////////////////////////////////////////////////////
+	//New parameters
 	goicp.regularization = config.getF("regularization");
 	goicp.regularizationNeighbors = config.getF("regularizationNeighbors");
 	goicp.regularizationFPFH = config.getF("regularizationFPFH");
 	goicp.cfpfh = config.getI("cfpfh");
 	goicp.norm = config.getI("norm");
 	goicp.ponderation = config.getI("ponderation");
+	//////////////////////////////////////////////////////
 
 	// If < 0.1% trimming specified, do no trimming
 	if(goicp.trimFraction < 0.001)
@@ -184,11 +260,13 @@ void readConfig(string FName, GoICP & goicp)
 int loadPointCloud(string FName, int & N, POINT3D ** p)
 {
 	int i;
+	//////////////////////////////////////////////////////
+	//c-FPFH files
 	ifstream ifile, cfpfhfile;
 
 	string fileName = "cfpfh/" + FName.substr(10, 14) + ".cfpfh";
 	cfpfhfile.open(fileName.c_str(), ifstream::in);
-
+	//////////////////////////////////////////////////////
 	ifile.open(FName.c_str(), ifstream::in);
 
 	if(!ifile.is_open())
@@ -196,24 +274,28 @@ int loadPointCloud(string FName, int & N, POINT3D ** p)
 		cout << "Unable to open point file '" << FName << "'" << endl;
 		exit(-1);
 	}
+	ifile >> N; // First line has number of points to follow
+	*p = (POINT3D *)malloc(sizeof(POINT3D) * N);
+
+	//////////////////////////////////////////////////////
+	//read c-FPFH files
 	if(!cfpfhfile.is_open())
 	{
 		cout << "Unable to open fpfh file '" << fileName << "'" << endl;
 		exit(-1);
 	}
-	ifile >> N; // First line has number of points to follow
-	*p = (POINT3D *)malloc(sizeof(POINT3D) * N);
-	float bin;
 	for(i = 0; i < N; i++)
 	{
         ifile >> (*p)[i].x >> (*p)[i].y >> (*p)[i].z >> (*p)[i].c;
 		
 		for(int j = 0; j < 41; j++) {
+			float bin = 0;
 			cfpfhfile >> bin;
 			(*p)[i].cfpfh.push_back(bin);
 		}
 	}
-	
+	cfpfhfile.close();
+	//////////////////////////////////////////////////////
 	ifile.close();
 
 	return 0;
