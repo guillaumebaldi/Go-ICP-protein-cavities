@@ -155,7 +155,6 @@ vector<point> Transformation::applyTransformation(vector<point> cloud, string na
         p2.x += tra[0][0];
         p2.y += tra[1][0];
         p2.z += tra[2][0];
-        //cout << p2.x << " " << p2.y << " " << p2.z << endl;
         newCloud.push_back(p2);
     }
 
@@ -287,9 +286,9 @@ vector<point4D> Transformation::readMolFile(ifstream &file) {
     string delimiter = "\t";
     if(file.is_open()) {
         while(getline(file, line)) {
-            if(line == "@<TRIPOS>ATOM") {
-                    header = false;
-            }
+	    if (line.find("@<TRIPOS>ATOM") != std::string::npos) {
+    		header = false;
+	    }
             if(header) {
                 continue;
             }

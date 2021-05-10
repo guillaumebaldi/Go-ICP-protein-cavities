@@ -64,14 +64,14 @@ int main(int argc, char** argv)
 	readConfig(configFName, goicp);
 
 	//////////////////////////////////////////////////////
-	cout << dataFName.substr(dataFName.find("/")+1, dataFName.find(".")-dataFName.find("/")-1) << endl;
 	string proteinData = dataFName.substr(dataFName.find("/")+1, dataFName.find(".")-dataFName.find("/")-1);
 	string proteinModel = modelFName.substr(modelFName.find("/")+1, modelFName.find(".")-modelFName.find("/")-1);
+	
 	Transformation t;
 	//Source and target point clouds
     ifstream fileSource (dataFName);
-    vector<point4D> cloudSource = t.readMolFile(fileSource);
 
+    vector<point4D> cloudSource = t.readMolFile(fileSource);
     ifstream fileTarget (modelFName);
     vector<point4D> cloudTarget = t.readMolFile(fileTarget);
 	//Normalization and centralization
@@ -85,8 +85,8 @@ int main(int argc, char** argv)
     double scale = scaleSource >= scaleTarget ? scaleSource : scaleTarget;
     t.scaleCloud(cloudSource, scale);
     t.scaleCloud(cloudTarget, scale);
-	string sourceFileName = "cavitiesN/" + proteinData + "_sim" + to_string(pair) + "N.xyz";
-	string targetFileName = "cavitiesN/" + proteinModel + "_sim" + to_string(pair) + "N.xyz";
+    string sourceFileName = "cavitiesN/" + proteinData + "_sim" + to_string(pair) + "N.xyz";
+    string targetFileName = "cavitiesN/" + proteinModel + "_sim" + to_string(pair) + "N.xyz";
     ofstream newFileSource(sourceFileName);
     ofstream newFileTarget(targetFileName);
     t.writeNormalizedMolCloudFile(newFileSource, cloudSource);
