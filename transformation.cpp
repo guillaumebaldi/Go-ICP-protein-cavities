@@ -413,17 +413,6 @@ void Transformation::rescaleCloud(ofstream &file, vector<point4D> &cloud, double
         z = -(rot[2][0] * xMean + rot[2][1] * yMean + rot[2][2] * zMean) + (scale * zTrans) + zMeanTemp;
         file << "Translation Vector:" << endl << "   " << x << endl << "   " << y << endl << "   " << z << endl;
         file << "Error: " << error << endl;
-        for(point4D &p : cloud) {
-            p.x *= scale;
-            p.y *= scale;
-            p.z *= scale;
-            p.x += xMeanTemp;
-            p.y += yMeanTemp;
-            p.z += zMeanTemp;
-            ostringstream newLine;
-            file << p.x << " " << p.y << " " << p.z << " " << p.c << endl;
-            file << newLine.str();
-        }
     }
     file.close();
 }

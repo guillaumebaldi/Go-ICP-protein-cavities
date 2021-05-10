@@ -1,0 +1,3 @@
+/mnt/d/Go-ICP-protein-cavities/CMakeFiles/rebuild_cache.dir
+/mnt/d/Go-ICP-protein-cavities/CMakeFiles/GoICP.dir
+/mnt/d/Go-ICP-protein-cavities/CMakeFiles/edit_cache.dir

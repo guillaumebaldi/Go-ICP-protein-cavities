@@ -45,6 +45,8 @@ using namespace std;
 #define DEFAULT_MODEL_FNAME "model.txt"
 #define DEFAULT_DATA_FNAME "data.txt"
 
+bool useFPFH = false;
+
 void parseInput(int argc, char **argv, string & modelFName, string & dataFName, int & NdDownsampled, string & configFName, string & outputFName, int & pair);
 void readConfig(string FName, GoICP & goicp);
 int loadPointCloud(string FName, int & N, POINT3D **  p);
@@ -62,9 +64,9 @@ int main(int argc, char** argv)
 	readConfig(configFName, goicp);
 
 	//////////////////////////////////////////////////////
-
-	string proteinData = dataFName.substr(dataFName.find("/")+1, 14);
-	string proteinModel = modelFName.substr(modelFName.find("/")+1, 14);
+	cout << dataFName.substr(dataFName.find("/")+1, dataFName.find(".")-dataFName.find("/")-1) << endl;
+	string proteinData = dataFName.substr(dataFName.find("/")+1, dataFName.find(".")-dataFName.find("/")-1);
+	string proteinModel = modelFName.substr(modelFName.find("/")+1, modelFName.find(".")-modelFName.find("/")-1);
 	Transformation t;
 	//Source and target point clouds
     ifstream fileSource (dataFName);
@@ -78,7 +80,6 @@ int main(int argc, char** argv)
     double xTrans, yTrans, zTrans = 0;
     double timeGO, error = 0;
     double rot[3][3] = {};
-    double tra[3][1] = {};
     double scaleSource = t.normalizeMolCloud(cloudSource, xMean, yMean, zMean);
     double scaleTarget = t.normalizeMolCloud(cloudTarget, xMeanTemp, yMeanTemp, zMeanTemp);
     double scale = scaleSource >= scaleTarget ? scaleSource : scaleTarget;
@@ -141,12 +142,21 @@ int main(int argc, char** argv)
 
 	//////////////////////////////////////////////////////
 	//Application of transformation on cavity and rescaling
-	ofstream appliedFile("cavitiesA/" + proteinData + "_sim" + to_string(pair) + "A.mol2");
-    t.writeAppliedMolFile(appliedFile, "output/similar" + to_string(pair) + ".txt", cloudSource.size(), cloudSource, rot, tra, xTrans, yTrans, zTrans, time, error);
-    ofstream rescaledFile("cavitiesR/similar" + to_string(pair) + ".txt");
-    t.rescaleCloud(rescaledFile, cloudSource, scale, xMeanTemp, yMeanTemp, zMeanTemp, time, error, xMean, yMean, zMean, rot, xTrans, yTrans, zTrans);
-	
+	//ofstream appliedFile("cavitiesA/" + proteinData + "_sim" + to_string(pair) + "A.mol2");
+    	//t.writeAppliedMolFile(appliedFile, "output/similar" + to_string(pair) + ".txt", cloudSource.size(), cloudSource, rot, tra, xTrans, yTrans, zTrans, time, error);
+    	xTrans = goicp.optT.val[0][0];
+	yTrans = goicp.optT.val[1][0];
+	zTrans = goicp.optT.val[2][0];
+	for(int i = 0; i < 3; i++) {
+		for(int j = 0; j < 3; j++) {
+			rot[i][j] = goicp.optR.val[i][j];
+		}
+	}
+	ofstream rescaledFile(outputFname.substr(0, outputFname.find(".")) + "_rescaled.txt");
+    	t.rescaleCloud(rescaledFile, cloudSource, scale, xMeanTemp, yMeanTemp, zMeanTemp, time, goicp.optError, xMean, yMean, zMean, rot, xTrans, yTrans, zTrans);
+
 	//Application of transformation on protein and RMSD computation
+	/*
 	string protein = proteinData.substr(0, 6) + "_protein.mol2";
 	ifstream proteinFile("chains/" + protein);
 	ofstream transformedProteinFile("rot/rot_" + protein);
@@ -159,8 +169,9 @@ int main(int argc, char** argv)
 		RMSDFile << pair << "\t" << proteinData.substr(0, 6) << "\t" << proteinModel.substr(0, 6) << "\t" << to_string(rmsd) << endl;
 	}
 	cout << "---> RMSD: " << rmsd << endl;
+	*/
 	//////////////////////////////////////////////////////
-
+	
 	delete(pModel);
 	delete(pData);
 
@@ -239,6 +250,7 @@ void readConfig(string FName, GoICP & goicp)
 	goicp.regularizationNeighbors = config.getF("regularizationNeighbors");
 	goicp.regularizationFPFH = config.getF("regularizationFPFH");
 	goicp.cfpfh = config.getI("cfpfh");
+	if (goicp.cfpfh != 0) useFPFH = true;
 	goicp.norm = config.getI("norm");
 	goicp.ponderation = config.getI("ponderation");
 	//////////////////////////////////////////////////////
@@ -264,7 +276,7 @@ int loadPointCloud(string FName, int & N, POINT3D ** p)
 	//c-FPFH files
 	ifstream ifile, cfpfhfile;
 
-	string fileName = "cfpfh/" + FName.substr(10, 14) + ".cfpfh";
+	string fileName = "cfpfh/" + FName.substr(FName.find("/")+1, FName.find_last_of("_") - FName.find("/") - 1) + ".cfpfh";
 	cfpfhfile.open(fileName.c_str(), ifstream::in);
 	//////////////////////////////////////////////////////
 	ifile.open(FName.c_str(), ifstream::in);

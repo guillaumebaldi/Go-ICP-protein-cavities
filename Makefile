@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /mnt/d/folders/Downloads/Go-ICP
+CMAKE_SOURCE_DIR = /mnt/d/Go-ICP-protein-cavities
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /mnt/d/folders/Downloads/Go-ICP
+CMAKE_BINARY_DIR = /mnt/d/Go-ICP-protein-cavities
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,9 +80,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/folders/Downloads/Go-ICP/CMakeFiles /mnt/d/folders/Downloads/Go-ICP/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/Go-ICP-protein-cavities/CMakeFiles /mnt/d/Go-ICP-protein-cavities/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/folders/Downloads/Go-ICP/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/d/Go-ICP-protein-cavities/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -176,33 +176,6 @@ StringTokenizer.s: StringTokenizer.cpp.s
 StringTokenizer.cpp.s:
 	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/StringTokenizer.cpp.s
 .PHONY : StringTokenizer.cpp.s
-
-Transformation.o: Transformation.cpp.o
-
-.PHONY : Transformation.o
-
-# target to build an object file
-Transformation.cpp.o:
-	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/Transformation.cpp.o
-.PHONY : Transformation.cpp.o
-
-Transformation.i: Transformation.cpp.i
-
-.PHONY : Transformation.i
-
-# target to preprocess a source file
-Transformation.cpp.i:
-	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/Transformation.cpp.i
-.PHONY : Transformation.cpp.i
-
-Transformation.s: Transformation.cpp.s
-
-.PHONY : Transformation.s
-
-# target to generate assembly for a file
-Transformation.cpp.s:
-	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/Transformation.cpp.s
-.PHONY : Transformation.cpp.s
 
 jly_3ddt.o: jly_3ddt.cpp.o
 
@@ -312,6 +285,33 @@ matrix.cpp.s:
 	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/matrix.cpp.s
 .PHONY : matrix.cpp.s
 
+transformation.o: transformation.cpp.o
+
+.PHONY : transformation.o
+
+# target to build an object file
+transformation.cpp.o:
+	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/transformation.cpp.o
+.PHONY : transformation.cpp.o
+
+transformation.i: transformation.cpp.i
+
+.PHONY : transformation.i
+
+# target to preprocess a source file
+transformation.cpp.i:
+	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/transformation.cpp.i
+.PHONY : transformation.cpp.i
+
+transformation.s: transformation.cpp.s
+
+.PHONY : transformation.s
+
+# target to generate assembly for a file
+transformation.cpp.s:
+	$(MAKE) -f CMakeFiles/GoICP.dir/build.make CMakeFiles/GoICP.dir/transformation.cpp.s
+.PHONY : transformation.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -327,9 +327,6 @@ help:
 	@echo "... StringTokenizer.o"
 	@echo "... StringTokenizer.i"
 	@echo "... StringTokenizer.s"
-	@echo "... Transformation.o"
-	@echo "... Transformation.i"
-	@echo "... Transformation.s"
 	@echo "... jly_3ddt.o"
 	@echo "... jly_3ddt.i"
 	@echo "... jly_3ddt.s"
@@ -342,6 +339,9 @@ help:
 	@echo "... matrix.o"
 	@echo "... matrix.i"
 	@echo "... matrix.s"
+	@echo "... transformation.o"
+	@echo "... transformation.i"
+	@echo "... transformation.s"
 .PHONY : help
 
 

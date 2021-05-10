@@ -15,7 +15,7 @@ regularization=0.0005
 regularizationNeighbors=0.0000
 
 # Ponderation on neighbors number: 1 for yes, 0 for no
-ponderation=0
+ponderation=1
 
 # Use of CFPFH: 0 for no, 1 for CFPFH(41), 2 for FPFH only(33), 3 for color only(8)
 cfpfh=0
